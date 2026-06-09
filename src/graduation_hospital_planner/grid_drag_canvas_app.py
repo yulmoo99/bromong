@@ -2117,21 +2117,21 @@ function addWardFloorsAndWalls3D(masses) {
   }
   // 병실(R) 경계에만 벽 생성 — 병실 셀에 인접한 면에만 벽을 세움
   const t = 0.055;
-  const R = moduleCodes.negative_pressure_patient_room;
+  const suiteTypes = new Set([moduleCodes.negative_pressure_patient_room, moduleCodes.anteroom, moduleCodes.ensuite_toilet_shower]);
   // 수직 경계: (r, c)와 (r, c+1) 사이
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols - 1; c++) {
       const left = grid[r][c], right = grid[r][c + 1];
-      if (left !== R && right !== R) continue;
-      addBox3D(threeRoot, c + 1 - t / 2, r, t, 1, THREE_WALL_HEIGHT, '#cbd5e1', THREE_ROOM_HEIGHT, 'room wall');
+      if (!suiteTypes.has(left) && !suiteTypes.has(right)) continue;
+      addBox3D(threeRoot, c + 1 - t / 2, r, t, 1, THREE_WALL_HEIGHT, '#cbd5e1', THREE_ROOM_HEIGHT, 'suite wall');
     }
   }
   // 수평 경계: (r, c)와 (r+1, c) 사이
   for (let r = 0; r < rows - 1; r++) {
     for (let c = 0; c < cols; c++) {
       const top = grid[r][c], bottom = grid[r + 1][c];
-      if (top !== R && bottom !== R) continue;
-      addBox3D(threeRoot, c, r + 1 - t / 2, 1, t, THREE_WALL_HEIGHT, '#f1f5f9', THREE_ROOM_HEIGHT, 'room wall');
+      if (!suiteTypes.has(top) && !suiteTypes.has(bottom)) continue;
+      addBox3D(threeRoot, c, r + 1 - t / 2, 1, t, THREE_WALL_HEIGHT, '#f1f5f9', THREE_ROOM_HEIGHT, 'suite wall');
     }
   }
 }

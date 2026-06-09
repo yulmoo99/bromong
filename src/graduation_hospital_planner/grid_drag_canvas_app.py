@@ -309,36 +309,42 @@ const THREE_D_ZOOM_BASE = 1.36;
 const THREE_D_WHEEL_ZOOM_IN = 1.28;
 const THREE_D_WHEEL_ZOOM_OUT = 0.82;
 const FURNITURE_LIBRARY = {
+  // 좌표계: x/y/w/d 는 해당 실(mass)의 폭·깊이 대비 비율 (0~1).
+  // 진입방향 가정: y≈0 이 출입구 방향. 각 실은 y:0~0.22 구간을 진입로로 비워둠.
+  // 치수 근거: 병상 0.9m×2.1m, 전실 3m×3m(2×2셀), 병실 6m×4.5m(4×3셀) 기준.
   patient_room: [
-    {type:'patient_bed', label:'bed', x:0.18, y:0.24, w:0.46, d:0.34, h:0.16, color:'#f8fafc'},
-    {type:'headwall', label:'headwall', x:0.13, y:0.16, w:0.58, d:0.07, h:0.10, color:'#dbeafe'},
-    {type:'bedside_table', label:'side', x:0.67, y:0.31, w:0.13, d:0.13, h:0.11, color:'#c4b5fd'},
-    {type:'medical_cart', label:'cart', x:0.72, y:0.62, w:0.16, d:0.16, h:0.12, color:'#bfdbfe'}
+    // 문: y≈0 (전실 접속 면). 헤드월은 맞은편 벽(y≈0.80)에, 병상 발치가 진입 방향.
+    {type:'headwall',      label:'headwall', x:0.30, y:0.80, w:0.22, d:0.05, h:0.10, color:'#dbeafe'},
+    {type:'patient_bed',   label:'bed',      x:0.30, y:0.26, w:0.18, d:0.50, h:0.16, color:'#f8fafc'},
+    {type:'bedside_table', label:'side',     x:0.52, y:0.40, w:0.10, d:0.14, h:0.11, color:'#c4b5fd'},
+    {type:'medical_cart',  label:'cart',     x:0.74, y:0.24, w:0.13, d:0.15, h:0.12, color:'#bfdbfe'},
   ],
   anteroom: [
-    {type:'ppe_bench', label:'PPE', x:0.18, y:0.18, w:0.56, d:0.16, h:0.10, color:'#fde68a'},
-    {type:'handwash_sink', label:'sink', x:0.12, y:0.58, w:0.18, d:0.22, h:0.12, color:'#bae6fd'},
-    {type:'donning_cabinet', label:'cab', x:0.66, y:0.52, w:0.18, d:0.30, h:0.18, color:'#fef3c7'}
+    // 문 2개: 복도 쪽(y≈0), 병실 쪽(y≈1). y:0~0.25 및 y:0.75~1.0 진입로 확보.
+    {type:'ppe_bench',       label:'PPE',  x:0.08, y:0.34, w:0.52, d:0.16, h:0.10, color:'#fde68a'},
+    {type:'handwash_sink',   label:'sink', x:0.08, y:0.58, w:0.22, d:0.20, h:0.12, color:'#bae6fd'},
+    {type:'donning_cabinet', label:'cab',  x:0.68, y:0.54, w:0.22, d:0.26, h:0.18, color:'#fef3c7'},
   ],
   wc: [
-    {type:'toilet_fixture', label:'WC', x:0.18, y:0.18, w:0.20, d:0.22, h:0.13, color:'#f8fafc'},
-    {type:'shower_zone', label:'shower', x:0.56, y:0.15, w:0.28, d:0.32, h:0.04, color:'#bfdbfe'},
-    {type:'washbasin', label:'basin', x:0.20, y:0.62, w:0.28, d:0.14, h:0.11, color:'#dbeafe'}
+    // 문: y≈0 (전실 접속). y:0~0.25 비움.
+    {type:'toilet_fixture', label:'WC',     x:0.08, y:0.28, w:0.30, d:0.36, h:0.13, color:'#f8fafc'},
+    {type:'shower_zone',    label:'shower', x:0.52, y:0.24, w:0.40, d:0.46, h:0.04, color:'#bfdbfe'},
+    {type:'washbasin',      label:'basin',  x:0.08, y:0.72, w:0.34, d:0.18, h:0.11, color:'#dbeafe'},
   ],
   nurse_station: [
-    {type:'nurse_counter', label:'counter', x:0.12, y:0.22, w:0.76, d:0.18, h:0.13, color:'#ccfbf1'},
-    {type:'workstation', label:'PC', x:0.22, y:0.48, w:0.22, d:0.18, h:0.12, color:'#99f6e4'},
-    {type:'meds_trolley', label:'meds', x:0.58, y:0.52, w:0.18, d:0.18, h:0.12, color:'#a7f3d0'}
+    {type:'nurse_counter', label:'counter', x:0.08, y:0.14, w:0.82, d:0.18, h:0.13, color:'#ccfbf1'},
+    {type:'workstation',   label:'PC',      x:0.14, y:0.40, w:0.26, d:0.20, h:0.12, color:'#99f6e4'},
+    {type:'meds_trolley',  label:'meds',    x:0.56, y:0.42, w:0.18, d:0.20, h:0.12, color:'#a7f3d0'},
   ],
   clean_supply: [
-    {type:'supply_shelving', label:'shelf', x:0.12, y:0.16, w:0.18, d:0.68, h:0.22, color:'#dcfce7'},
-    {type:'supply_shelving', label:'shelf', x:0.70, y:0.16, w:0.18, d:0.68, h:0.22, color:'#dcfce7'}
+    {type:'supply_shelving', label:'shelf', x:0.08, y:0.10, w:0.20, d:0.80, h:0.22, color:'#dcfce7'},
+    {type:'supply_shelving', label:'shelf', x:0.70, y:0.10, w:0.20, d:0.80, h:0.22, color:'#dcfce7'},
   ],
   soiled_holding: [
-    {type:'dirty_worktop', label:'dirty', x:0.12, y:0.16, w:0.64, d:0.18, h:0.13, color:'#fecaca'},
-    {type:'waste_bin', label:'bin', x:0.18, y:0.55, w:0.18, d:0.18, h:0.12, color:'#fca5a5'},
-    {type:'waste_bin', label:'bin', x:0.48, y:0.55, w:0.18, d:0.18, h:0.12, color:'#f87171'}
-  ]
+    {type:'dirty_worktop', label:'dirty', x:0.08, y:0.10, w:0.72, d:0.20, h:0.13, color:'#fecaca'},
+    {type:'waste_bin',     label:'bin',   x:0.10, y:0.50, w:0.20, d:0.22, h:0.12, color:'#fca5a5'},
+    {type:'waste_bin',     label:'bin',   x:0.46, y:0.50, w:0.20, d:0.22, h:0.12, color:'#f87171'},
+  ],
 };
 let isDown = false;
 let dragStart = null;
@@ -2145,14 +2151,15 @@ function addPrimitiveFurnitureItem3D(item) {
   const scaled = scaledFurnitureRect(item);
   const x = scaled.x, y = scaled.y, w = scaled.w, d = scaled.d;
   if (item.type === 'patient_bed') {
-    addBox3D(threeRoot, x + w*0.03, y + d*0.08, w*0.94, d*0.84, 0.10, '#64748b', z, 'bed steel frame');
-    addCapsule3D(threeRoot, x + w*0.08, y + d*0.12, w*0.84, d*0.76, 0.26, '#60a5fa', z + 0.09, 'blue rounded bed mattress');
-    addCapsule3D(threeRoot, x + w*0.22, y + d*0.13, w*0.56, d*0.20, 0.11, '#ffffff', z + 0.31, 'raised white bed pillow');
-    addBox3D(threeRoot, x + w*0.04, y + d*0.05, w*0.92, d*0.055, 0.30, '#334155', z + 0.08, 'dark bed head board');
-    addBox3D(threeRoot, x + w*0.02, y + d*0.34, w*0.045, d*0.48, 0.23, '#1e293b', z + 0.15, 'left vertical bed rail');
-    addBox3D(threeRoot, x + w*0.935, y + d*0.34, w*0.045, d*0.48, 0.23, '#1e293b', z + 0.15, 'right vertical bed rail');
-    addSlimCylinder3D(threeRoot, x + w*0.92, y + d*0.12, 0.018, 0.64, '#475569', z, 'IV pole beside bed');
-    addSphere3D(threeRoot, x + w*0.92, y + d*0.12, 0.055, '#fbbf24', z + 0.70, 'IV bag marker');
+    // 헤드보드: y 큰 쪽(헤드월 방향), 발치: y 작은 쪽(진입방향)
+    addBox3D(threeRoot, x + w*0.03, y + d*0.06, w*0.94, d*0.88, 0.10, '#64748b', z, 'bed steel frame');
+    addCapsule3D(threeRoot, x + w*0.08, y + d*0.10, w*0.84, d*0.80, 0.26, '#60a5fa', z + 0.09, 'blue rounded bed mattress');
+    addCapsule3D(threeRoot, x + w*0.20, y + d*0.66, w*0.60, d*0.18, 0.11, '#ffffff', z + 0.31, 'raised white bed pillow');
+    addBox3D(threeRoot, x + w*0.04, y + d*0.88, w*0.92, d*0.055, 0.30, '#334155', z + 0.08, 'headboard at head end');
+    addBox3D(threeRoot, x + w*0.02, y + d*0.14, w*0.045, d*0.60, 0.23, '#1e293b', z + 0.15, 'left vertical bed rail');
+    addBox3D(threeRoot, x + w*0.935, y + d*0.14, w*0.045, d*0.60, 0.23, '#1e293b', z + 0.15, 'right vertical bed rail');
+    addSlimCylinder3D(threeRoot, x + w*0.10, y + d*0.82, 0.018, 0.64, '#475569', z, 'IV pole at head side');
+    addSphere3D(threeRoot, x + w*0.10, y + d*0.82, 0.055, '#fbbf24', z + 0.70, 'IV bag marker');
   } else if (item.type === 'headwall') {
     addBox3D(threeRoot, x, y + d*0.05, w, d*0.28, 0.36, '#475569', z, 'dark medical headwall panel');
     addBox3D(threeRoot, x + w*0.12, y + d*0.11, w*0.22, d*0.08, 0.05, '#22c55e', z + 0.29, 'green gas outlet');

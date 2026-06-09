@@ -309,42 +309,42 @@ const THREE_D_ZOOM_BASE = 1.36;
 const THREE_D_WHEEL_ZOOM_IN = 1.28;
 const THREE_D_WHEEL_ZOOM_OUT = 0.82;
 const FURNITURE_LIBRARY = {
-  // 좌표계: x/y/w/d 는 해당 실(mass)의 폭·깊이 대비 비율 (0~1).
-  // 진입방향 가정: y≈0 이 출입구 방향. 각 실은 y:0~0.22 구간을 진입로로 비워둠.
-  // 치수 근거: 병상 0.9m×2.1m, 전실 3m×3m(2×2셀), 병실 6m×4.5m(4×3셀) 기준.
+  // x/y: 실(mass) 크기 대비 0~1 비율로 가구 중심 위치 지정 (absSize:true 일 때)
+  // w/d: absSize:true → 절대 셀 단위 (1셀=1.5m), 방향/크기 무관하게 일정
+  // 진입방향: y≈0 이 출입구. 각 실은 y:0~0.22 비워둠.
   patient_room: [
-    // 문: y≈0 (전실 접속 면). 헤드월은 맞은편 벽(y≈0.80)에, 병상 발치가 진입 방향.
-    // 병상(w:0.22, d:0.54) 머리를 headwall(y:0.80)에 붙임: 병상 y+d = 0.26+0.54 = 0.80
-    {type:'headwall',      label:'headwall', x:0.32, y:0.80, w:0.30, d:0.05, h:0.10, color:'#dbeafe'},
-    {type:'patient_bed',   label:'bed',      x:0.36, y:0.26, w:0.22, d:0.54, h:0.16, color:'#f8fafc'},
-    {type:'bedside_table', label:'side',     x:0.62, y:0.44, w:0.10, d:0.14, h:0.11, color:'#c4b5fd'},
-    {type:'medical_cart',  label:'cart',     x:0.74, y:0.24, w:0.13, d:0.15, h:0.12, color:'#bfdbfe'},
+    // 병실 4×3셀(6m×4.5m) 기준. 병상 0.9m×2.1m = 0.60×1.40셀.
+    // 병상 머리(y 큰 쪽)가 headwall에 붙도록 배치
+    {type:'headwall',      label:'headwall', x:0.50, y:0.88, w:1.00, d:0.12, h:0.10, color:'#dbeafe', absSize:true},
+    {type:'patient_bed',   label:'bed',      x:0.43, y:0.57, w:0.60, d:1.40, h:0.16, color:'#f8fafc', absSize:true},
+    {type:'bedside_table', label:'side',     x:0.72, y:0.57, w:0.33, d:0.33, h:0.11, color:'#c4b5fd', absSize:true},
+    {type:'medical_cart',  label:'cart',     x:0.80, y:0.30, w:0.40, d:0.40, h:0.12, color:'#bfdbfe', absSize:true},
   ],
   anteroom: [
-    // 문 2개: 복도 쪽(y≈0), 병실 쪽(y≈1). y:0~0.25 및 y:0.75~1.0 진입로 확보.
-    {type:'ppe_bench',       label:'PPE',  x:0.08, y:0.34, w:0.52, d:0.16, h:0.10, color:'#fde68a'},
-    {type:'handwash_sink',   label:'sink', x:0.08, y:0.58, w:0.22, d:0.20, h:0.12, color:'#bae6fd'},
-    {type:'donning_cabinet', label:'cab',  x:0.68, y:0.54, w:0.22, d:0.26, h:0.18, color:'#fef3c7'},
+    // 전실 2×2셀(3m×3m). PPE벤치 1.5m×0.45m = 1.00×0.30셀.
+    {type:'ppe_bench',       label:'PPE',  x:0.35, y:0.42, w:1.00, d:0.30, h:0.10, color:'#fde68a', absSize:true},
+    {type:'handwash_sink',   label:'sink', x:0.18, y:0.66, w:0.40, d:0.30, h:0.12, color:'#bae6fd', absSize:true},
+    {type:'donning_cabinet', label:'cab',  x:0.78, y:0.62, w:0.30, d:0.40, h:0.18, color:'#fef3c7', absSize:true},
   ],
   wc: [
-    // 문: y≈0 (전실 접속). y:0~0.25 비움.
-    {type:'toilet_fixture', label:'WC',     x:0.08, y:0.28, w:0.30, d:0.36, h:0.13, color:'#f8fafc'},
-    {type:'shower_zone',    label:'shower', x:0.52, y:0.24, w:0.40, d:0.46, h:0.04, color:'#bfdbfe'},
-    {type:'washbasin',      label:'basin',  x:0.08, y:0.72, w:0.34, d:0.18, h:0.11, color:'#dbeafe'},
+    // 화장실 2×2셀(3m×3m). 변기 0.45m×0.65m = 0.30×0.43셀.
+    {type:'toilet_fixture', label:'WC',     x:0.24, y:0.56, w:0.30, d:0.43, h:0.13, color:'#f8fafc', absSize:true},
+    {type:'shower_zone',    label:'shower', x:0.72, y:0.56, w:0.60, d:0.60, h:0.04, color:'#bfdbfe', absSize:true},
+    {type:'washbasin',      label:'basin',  x:0.24, y:0.82, w:0.37, d:0.27, h:0.11, color:'#dbeafe', absSize:true},
   ],
   nurse_station: [
-    {type:'nurse_counter', label:'counter', x:0.08, y:0.14, w:0.82, d:0.18, h:0.13, color:'#ccfbf1'},
-    {type:'workstation',   label:'PC',      x:0.14, y:0.40, w:0.26, d:0.20, h:0.12, color:'#99f6e4'},
-    {type:'meds_trolley',  label:'meds',    x:0.56, y:0.42, w:0.18, d:0.20, h:0.12, color:'#a7f3d0'},
+    {type:'nurse_counter', label:'counter', x:0.50, y:0.22, w:2.00, d:0.30, h:0.13, color:'#ccfbf1', absSize:true},
+    {type:'workstation',   label:'PC',      x:0.25, y:0.50, w:0.60, d:0.40, h:0.12, color:'#99f6e4', absSize:true},
+    {type:'meds_trolley',  label:'meds',    x:0.72, y:0.52, w:0.40, d:0.40, h:0.12, color:'#a7f3d0', absSize:true},
   ],
   clean_supply: [
-    {type:'supply_shelving', label:'shelf', x:0.08, y:0.10, w:0.20, d:0.80, h:0.22, color:'#dcfce7'},
-    {type:'supply_shelving', label:'shelf', x:0.70, y:0.10, w:0.20, d:0.80, h:0.22, color:'#dcfce7'},
+    {type:'supply_shelving', label:'shelf', x:0.20, y:0.50, w:0.30, d:1.20, h:0.22, color:'#dcfce7', absSize:true},
+    {type:'supply_shelving', label:'shelf', x:0.80, y:0.50, w:0.30, d:1.20, h:0.22, color:'#dcfce7', absSize:true},
   ],
   soiled_holding: [
-    {type:'dirty_worktop', label:'dirty', x:0.08, y:0.10, w:0.72, d:0.20, h:0.13, color:'#fecaca'},
-    {type:'waste_bin',     label:'bin',   x:0.10, y:0.50, w:0.20, d:0.22, h:0.12, color:'#fca5a5'},
-    {type:'waste_bin',     label:'bin',   x:0.46, y:0.50, w:0.20, d:0.22, h:0.12, color:'#f87171'},
+    {type:'dirty_worktop', label:'dirty', x:0.50, y:0.22, w:1.60, d:0.30, h:0.13, color:'#fecaca', absSize:true},
+    {type:'waste_bin',     label:'bin',   x:0.25, y:0.60, w:0.33, d:0.33, h:0.12, color:'#fca5a5', absSize:true},
+    {type:'waste_bin',     label:'bin',   x:0.65, y:0.60, w:0.33, d:0.33, h:0.12, color:'#f87171', absSize:true},
   ],
 };
 let isDown = false;
@@ -1511,21 +1511,30 @@ function furnitureVisualHeight(item, heightScale = 1) {
   return Math.max(FURNITURE_MIN_VISUAL_HEIGHT, item.h * heightScale * FURNITURE_HEIGHT_SCALE) + FURNITURE_SINK_Z;
 }
 function buildFurnitureFromMass(mass) {
-  // Each same-type modular room receives the same relative furniture kit, so repeated rooms read as architectural modules rather than anonymous solid blocks.
-  // The furniture base is locked to the same flat room floor plate; rooms are no longer raised blocks with equipment pasted onto their top faces.
-  return furnitureTemplateForMass(mass).map(item => ({
+  // absSize:true → w/d는 절대 셀 단위(중심 기준 배치), x/y는 여전히 0-1 비율로 중심 위치 지정
+  // absSize 없음 → 기존 방식(비율 곱)
+  return furnitureTemplateForMass(mass).map(item => {
+    const iw = item.absSize ? item.w : Math.max(0.18, item.w * mass.w);
+    const id = item.absSize ? item.d : Math.max(0.18, item.d * mass.d);
+    const ix = item.absSize
+      ? mass.x + item.x * mass.w - iw / 2
+      : mass.x + item.x * mass.w;
+    const iy = item.absSize
+      ? mass.y + item.y * mass.d - id / 2
+      : mass.y + item.y * mass.d;
+    return ({
     type: item.type,
     label: item.label,
-    x: mass.x + item.x * mass.w,
-    y: mass.y + item.y * mass.d,
-    w: Math.max(0.18, item.w * mass.w),
-    d: Math.max(0.18, item.d * mass.d),
+    x: ix,
+    y: iy,
+    w: iw,
+    d: id,
     h: item.h,
     baseZ: groundedFurnitureBaseForHeight(item.h),
     color: item.color,
     clusterId: mass.clusterId,
     furnitureSignature: mass.furnitureSignature
-  }));
+  });});
 }
 function build3DMassesFromGrid(valueGrid = grid, clusterSource = clusterGrid) {
   const values = [moduleCodes.controlled_corridor, moduleCodes.negative_pressure_patient_room, moduleCodes.anteroom, moduleCodes.ensuite_toilet_shower, moduleCodes.nurse_station, moduleCodes.clean_supply_alcove, moduleCodes.soiled_waste_holding];

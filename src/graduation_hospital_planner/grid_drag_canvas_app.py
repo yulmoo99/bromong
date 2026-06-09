@@ -13,17 +13,69 @@ import streamlit as st
 
 ROOT = Path(__file__).resolve().parents[2]
 MODULE_DB_PATH = ROOT / "data" / "modules_ward_v01.json"
+DESIGN_PATH = ROOT / "DESIGN.md"
 
-st.set_page_config(page_title="Hospital Grid Painter", layout="wide")
-st.title("Hospital Floor Grid Painter Prototype")
+st.set_page_config(page_title="Infection Ward Planner", page_icon="◌", layout="wide", initial_sidebar_state="collapsed")
 
+def inject_apple_design_shell() -> None:
+    """Apply the Apple Clinical Planner visual shell defined in DESIGN.md."""
+    st.markdown(
+        """
+        <style>
+          :root {
+            --apple-primary:#1D1D1F; --apple-secondary:#6E6E73; --apple-blue:#0071E3;
+            --apple-bg:#F5F5F7; --apple-surface:#FFFFFF; --apple-glass:rgba(251,251,253,.82);
+            --apple-separator:#D2D2D7; --apple-shadow:0 18px 60px rgba(0,0,0,.08);
+            --apple-radius:24px;
+          }
+          html, body, [data-testid="stAppViewContainer"] { background: var(--apple-bg); }
+          [data-testid="stAppViewContainer"] > .main { background: radial-gradient(circle at top left, #ffffff 0, #f5f5f7 46%, #eef2f7 100%); }
+          .block-container { padding-top: 2.1rem; padding-bottom: 3rem; max-width: 1480px; }
+          [data-testid="stSidebar"] { background: rgba(255,255,255,.74); border-right: 1px solid rgba(210,210,215,.72); backdrop-filter: blur(24px); min-width: 310px !important; width: 310px !important; }
+          [data-testid="stSidebar"] > div:first-child { padding: 1.7rem 1.05rem 2rem 2.05rem; overflow: visible; }
+          [data-testid="stSidebar"] * { max-width: 100%; }
+          [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { color: var(--apple-secondary); font-size: .86rem; }
+          [data-testid="stSidebar"] label, [data-testid="stSidebar"] .stNumberInput label { color: var(--apple-primary); font-weight: 650; letter-spacing: -.01em; }
+          .stSlider, .stNumberInput, .stRadio { background: rgba(255,255,255,.76); border: 1px solid rgba(210,210,215,.72); border-radius: 18px; padding: .78rem .84rem; box-shadow: 0 1px 2px rgba(0,0,0,.035); }
+          .apple-hero { background: linear-gradient(145deg, rgba(255,255,255,.94), rgba(251,251,253,.78)); border: 1px solid rgba(210,210,215,.78); border-radius: 32px; padding: 28px 32px; box-shadow: var(--apple-shadow); margin-bottom: 22px; }
+          .apple-eyebrow { color: var(--apple-blue); font-weight: 700; font-size: .78rem; letter-spacing: .04em; margin-bottom: 8px; }
+          .apple-hero h1 { color: var(--apple-primary); font-family: -apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif; font-size: clamp(2rem, 3.2vw, 3.9rem); line-height: 1.02; letter-spacing: -.055em; margin: 0 0 10px; }
+          .apple-hero p { color: var(--apple-secondary); font-size: 1.04rem; line-height: 1.55; max-width: 780px; margin: 0; }
+          .apple-spec { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
+          .apple-pill { border:1px solid rgba(210,210,215,.82); background: rgba(255,255,255,.72); border-radius:999px; padding:7px 12px; color:var(--apple-primary); font-size:.82rem; font-weight:600; }
+          iframe { border-radius: 28px !important; box-shadow: 0 22px 80px rgba(0,0,0,.10); background: white; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+inject_apple_design_shell()
+
+st.sidebar.markdown("### Controls")
+st.sidebar.caption("DESIGN.md tokens drive the Apple-style planning shell and embedded canvas.")
 cols = st.sidebar.slider("Grid columns", 10, 80, 40)
 rows = st.sidebar.slider("Grid rows", 10, 60, 30)
 cell = st.sidebar.slider("Cell size px", 12, 32, 20)
-st.sidebar.caption("Pencil paints cells while dragging. Rectangle fills the box between drag start/end.")
-default_bed_count = st.sidebar.number_input("Target bed count for Auto Layout v2", min_value=2, max_value=24, value=10, step=2)
-tool = st.sidebar.radio("Tool", ["pencil", "rectangle"], horizontal=True)
-mode = st.sidebar.radio("Mode", ["paint", "erase"], horizontal=True)
+default_bed_count = st.sidebar.number_input("Target bed count", min_value=2, max_value=24, value=10, step=2)
+tool = st.sidebar.radio("Drawing tool", ["pencil", "rectangle"], horizontal=True)
+mode = st.sidebar.radio("Edit mode", ["paint", "erase"], horizontal=True)
+
+st.markdown(
+    f"""
+    <section class="apple-hero">
+      <div class="apple-eyebrow">APPLE CLINICAL PLANNER · DESIGN.md SYSTEM</div>
+      <h1>Infection Ward Layout Studio</h1>
+      <p>Generate, compare, and inspect negative-pressure ward layouts in a calmer Apple-style workspace: glass controls, soft stages, and a sharper 2D/3D architectural review flow.</p>
+      <div class="apple-spec">
+        <span class="apple-pill">{cols} × {rows} grid</span>
+        <span class="apple-pill">{default_bed_count} target beds</span>
+        <span class="apple-pill">{tool} · {mode}</span>
+        <span class="apple-pill">DESIGN.md active</span>
+      </div>
+    </section>
+    """,
+    unsafe_allow_html=True,
+)
 
 module_db = json.loads(MODULE_DB_PATH.read_text(encoding="utf-8"))
 module_meta = {m["id"]: m for m in module_db["modules"]}
@@ -71,15 +123,15 @@ code_to_module = {str(v): k for k, v in module_codes.items()}
 
 colors = {
     "0": "#ffffff",
-    "1": "#e8f0ff",
-    "10": "#bfc7d5",
-    "20": "#f4a261",
-    "21": "#ffe066",
-    "22": "#9bd0ff",
-    "30": "#70c1b3",
-    "40": "#95d5b2",
-    "41": "#e76f51",
-    "50": "#d8cfbd",
+    "1": "#eef5ff",
+    "10": "#c7d1dd",
+    "20": "#ffb340",
+    "21": "#ffd60a",
+    "22": "#64d2ff",
+    "30": "#32d74b",
+    "40": "#9be7b2",
+    "41": "#ff6961",
+    "50": "#ded8cc",
 }
 labels = {"10": "C", "20": "R", "21": "A", "22": "WC", "30": "N", "40": "CL", "41": "D", "50": "S"}
 
@@ -108,44 +160,77 @@ html_template = Template(r'''
 <head>
 <meta charset="utf-8" />
 <style>
-  body { margin: 0; font-family: Inter, Arial, sans-serif; color:#1f2937; }
-  #toolbar { margin-bottom: 8px; font-size: 13px; color: #333; line-height:1.45; }
-  canvas { border: 1px solid #444; cursor: crosshair; image-rendering: pixelated; }
-  textarea { width: ${canvas_w}px; height: 90px; margin-top: 8px; font-family: monospace; font-size:11px; }
-  button { margin-right: 6px; margin-bottom: 6px; padding: 5px 8px; }
-  #legend { margin: 6px 0 8px 0; font-size: 12px; line-height: 1.8; max-width: ${canvas_w}px; }
-  #legend span { margin-right: 10px; white-space: nowrap; }
-  .swatch { display: inline-block; width: 12px; height: 12px; margin-right: 4px; vertical-align: -1px; border: 1px solid #999; }
-  #moduleInfo, #ruleReport, #optionPanel, #threeDPanel { max-width: ${canvas_w}px; margin: 6px 0; padding: 8px; background: #f7f7f7; border: 1px solid #ddd; font-size: 12px; }
-  #ruleReport ul, #optionPanel ul { margin: 6px 0 0 18px; padding: 0; }
-  .option-card { margin: 6px 0; padding: 7px; border-left: 4px solid #4f8cff; background: white; clear:both; min-height:32px; }
+  :root {
+    --primary:#1D1D1F; --secondary:#6E6E73; --blue:#0071E3; --blue-dark:#005BB5;
+    --bg:#F5F5F7; --surface:#FFFFFF; --glass:rgba(251,251,253,.82); --separator:#D2D2D7;
+    --shadow:0 18px 60px rgba(0,0,0,.08); --soft-shadow:0 1px 2px rgba(0,0,0,.06);
+    --radius-lg:24px; --radius-md:16px; --radius-sm:10px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; color:var(--primary); background: transparent; }
+  .planner-shell { max-width: min(${canvas_w}px, 100%); margin: 0 auto; }
+  .planner-stage { background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(251,251,253,.88)); border:1px solid rgba(210,210,215,.82); border-radius: 28px; padding: 20px; box-shadow: var(--shadow); overflow: hidden; }
+  #toolbar { display:flex; justify-content:space-between; gap:18px; align-items:flex-start; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid rgba(210,210,215,.72); }
+  .toolbar-title { font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif; font-size: 22px; line-height:1.08; letter-spacing:-.035em; font-weight:720; margin:0; }
+  .toolbar-subtitle { margin-top:7px; color:var(--secondary); font-size:13px; line-height:1.45; max-width:680px; }
+  .metric-strip { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; min-width:220px; }
+  .metric-chip, #legend span { display:inline-flex; align-items:center; gap:6px; border:1px solid rgba(210,210,215,.82); background:rgba(255,255,255,.74); border-radius:999px; padding:7px 10px; color:var(--primary); font-size:12px; font-weight:650; white-space:nowrap; box-shadow:var(--soft-shadow); }
+  .canvas-wrap { border-radius:22px; background:#fff; border:1px solid rgba(210,210,215,.82); padding:12px; overflow:auto; }
+  canvas { border: 1px solid rgba(0,0,0,.10); border-radius:18px; cursor: crosshair; image-rendering: pixelated; background:#fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.7); }
+  .action-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:14px 0 12px; }
+  button, input::file-selector-button { appearance:none; border:1px solid rgba(210,210,215,.85); background:rgba(255,255,255,.86); color:var(--primary); border-radius:999px; padding:9px 13px; font-size:12px; font-weight:680; letter-spacing:-.01em; cursor:pointer; box-shadow:var(--soft-shadow); transition:transform .16s ease, background .16s ease, border-color .16s ease; }
+  button:hover, input::file-selector-button:hover { transform:translateY(-1px); border-color:rgba(0,113,227,.34); background:#fff; }
+  .action-row button:nth-child(3), .action-row button:nth-child(4), button.primary { background:var(--blue); color:white; border-color:var(--blue); box-shadow:0 8px 20px rgba(0,113,227,.22); }
+  .action-row button:nth-child(3):hover, .action-row button:nth-child(4):hover, button.primary:hover { background:var(--blue-dark); }
+  input[type="file"] { color:var(--secondary); font-size:12px; }
+  #legend { display:flex; flex-wrap:wrap; gap:7px; margin: 12px 0 0; font-size: 12px; line-height: 1.4; max-width: ${canvas_w}px; }
+  .swatch { display:inline-block; width: 10px; height: 10px; border-radius:999px; border: 1px solid rgba(0,0,0,.16); }
+  #moduleInfo, #ruleReport, #optionPanel, #threeDPanel { max-width: ${canvas_w}px; margin: 16px 0 0; padding: 18px; background: rgba(255,255,255,.90); border: 1px solid rgba(210,210,215,.82); border-radius:24px; font-size: 12px; box-shadow: 0 10px 34px rgba(0,0,0,.055); }
+  #moduleInfo { color:var(--secondary); }
+  #ruleReport ul, #optionPanel ul { margin: 10px 0 0 18px; padding: 0; }
+  .option-card { margin: 10px 0; padding: 14px 14px 13px; border: 1px solid rgba(210,210,215,.82); border-left: 5px solid var(--blue); border-radius:18px; background: white; clear:both; min-height:42px; box-shadow:0 8px 24px rgba(0,0,0,.045); }
   .option-card button { float: right; }
-  #threeDCanvas { width: ${canvas_w}px; max-width: 100%; height: 420px; border:1px solid #444; background: linear-gradient(#f8fafc,#e5e7eb); cursor: grab; }
+  #threeDPanel b:first-child { display:block; font-size:16px; letter-spacing:-.018em; margin-bottom:4px; }
+  #threeDCanvas { width: ${canvas_w}px; max-width: 100%; height: 420px; border:1px solid rgba(0,0,0,.10); border-radius:20px; background: linear-gradient(#fbfbfd,#eef2f7); cursor: grab; margin-top:12px; image-rendering:auto; }
   #threeDCanvas.dragging { cursor: grabbing; }
-  .small { color:#6b7280; font-size:11px; }
+  textarea { width: ${canvas_w}px; max-width: 100%; height: 86px; margin-top: 16px; font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size:11px; color:#424245; background:rgba(255,255,255,.70); border:1px solid rgba(210,210,215,.82); border-radius:18px; padding:12px; }
+  .small { color:var(--secondary); font-size:11px; line-height:1.45; }
 </style>
 </head>
 <body>
-<div id="toolbar">
-  Mode: <b>${mode}</b> | Tool: <b>${tool}</b> | Columns: ${cols}, Rows: ${rows}, Cell: ${cell}px<br/>
-  Pencil: drag to paint cells. Rectangle: drag from one corner to another.<br/>
-  Auto Layout v2: <input id="bedCount" type="number" min="2" max="24" step="2" value="${default_bed_count}" style="width:60px"/> beds. If no grid is drawn, a default legal planning mask is generated from bed count.
+<div class="planner-shell">
+  <section class="planner-stage">
+    <div id="toolbar">
+      <div>
+        <div class="toolbar-title">Planning Canvas</div>
+        <div class="toolbar-subtitle">Paint the legal planning mask, generate ward alternatives, then inspect the selected option in a softer Apple-style 2D/3D review stage.</div>
+      </div>
+      <div class="metric-strip">
+        <span class="metric-chip">Mode <b>${mode}</b></span>
+        <span class="metric-chip">Tool <b>${tool}</b></span>
+        <span class="metric-chip">${cols}×${rows}</span>
+        <span class="metric-chip"><input id="bedCount" type="number" min="2" max="24" step="2" value="${default_bed_count}" style="width:48px;border:0;background:transparent;font-weight:700;color:#1D1D1F;text-align:right;"/> beds</span>
+      </div>
+    </div>
+    <div class="canvas-wrap"><canvas id="grid" width="${canvas_w}" height="${canvas_h}"></canvas></div>
+    <div class="action-row">
+      <button onclick="clearGrid()">Clear</button>
+      <button onclick="fillGrid()">Fill All</button>
+      <button onclick="generateLayoutOptions()">Generate / Regenerate Layout Options</button>
+      <button class="primary" onclick="renderSelectedLayout3D()">View Selected Layout in 3D</button>
+      <button onclick="checkWardRules()">Check Ward Rules</button>
+      <button onclick="copyJson()">Copy JSON</button>
+      <button onclick="downloadJson()">Download JSON</button>
+      <input type="file" id="loadFile" accept=".json,application/json" onchange="loadJsonFile(event)" />
+    </div>
+    <div id="legend">${legend_html}</div>
+  </section>
+  <div id="moduleInfo">Hover a module cell to see source/confidence. R area is grounded by Korean MOHW 2024: general inpatient negative-pressure room ≥10㎡, excluding anteroom and toilet/shower.</div>
+  <div id="ruleReport">Click <b>Check Ward Rules</b> after placement to see compact ward rule checks.</div>
+  <div id="optionPanel">Auto Layout v2 comparison will appear here after <b>Generate Layout Options</b>.</div>
+  <div id="threeDPanel"><b>3D mass viewer</b><span class="small">Select or generate a layout, then click <b>View Selected Layout in 3D</b>. Left-drag to rotate, wheel to zoom, right-drag or middle-drag to pan after zooming.</span><div id="threeDStatus" class="small"></div><canvas id="threeDCanvas" width="${canvas_w}" height="420"></canvas></div>
+  <textarea id="output" readonly></textarea>
 </div>
-<canvas id="grid" width="${canvas_w}" height="${canvas_h}"></canvas><br/>
-<button onclick="clearGrid()">Clear</button>
-<button onclick="fillGrid()">Fill All</button>
-<button onclick="generateLayoutOptions()">Generate / Regenerate Layout Options</button>
-<button onclick="renderSelectedLayout3D()">View Selected Layout in 3D</button>
-<button onclick="checkWardRules()">Check Ward Rules</button>
-<button onclick="copyJson()">Copy JSON</button>
-<button onclick="downloadJson()">Download JSON</button>
-<input type="file" id="loadFile" accept=".json,application/json" onchange="loadJsonFile(event)" />
-<div id="legend">${legend_html}</div>
-<div id="moduleInfo">Hover a module cell to see source/confidence. R area is grounded by Korean MOHW 2024: general inpatient negative-pressure room ≥10㎡, excluding anteroom and toilet/shower.</div>
-<div id="ruleReport">Click <b>Check Ward Rules</b> after placement to see compact ward rule checks.</div>
-<div id="optionPanel">Auto Layout v2 comparison will appear here after <b>Generate Layout Options</b>.</div>
-<div id="threeDPanel"><b>3D mass viewer</b><br/><span class="small">Select or generate a layout, then click <b>View Selected Layout in 3D</b>. Left-drag to rotate, wheel to zoom, right-drag or middle-drag to pan after zooming.</span><div id="threeDStatus" class="small"></div><canvas id="threeDCanvas" width="${canvas_w}" height="420"></canvas></div>
-<textarea id="output" readonly></textarea>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>

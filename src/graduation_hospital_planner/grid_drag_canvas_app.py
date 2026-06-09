@@ -1366,7 +1366,7 @@ function renderOptionPanel() {
     html += '<div class="small" style="margin-top:8px;">';
     html += '<b style="color:#1D1D1F;">' + label + '</b><br/>';
     html += '배치 병상: <b>' + bedEst + '개</b> &nbsp;|&nbsp; 공간 이용률: <b>' + areaScore + '%</b><br/>';
-    html += '<span style="color:#aaa;">전략: ' + opt.corridorStrategy + '</span>';
+    html += '<span style="color:#aaa;">corridorStrategy: ' + opt.corridorStrategy + '</span>';
     html += '</div></div>';
   });
   html += '</div>';
@@ -1502,6 +1502,7 @@ function furnitureSignatureForValue(value) {
   return furnitureTemplateForMass(fakeMass).map(item => item.type).join('+') || 'none';
 }
 function groundedFurnitureBaseForHeight(height, heightScale = 1) {
+  // Furniture base is locked to the same flat room floor plate as the room finish; visual sink/shadow are applied only at render time.
   return FURNITURE_BASE_Z;
 }
 function furnitureVisualBaseZ(item) {
@@ -1513,6 +1514,7 @@ function furnitureVisualHeight(item, heightScale = 1) {
 function buildFurnitureFromMass(mass) {
   // absSize:true → w/d는 절대 셀 단위(중심 기준 배치), x/y는 여전히 0-1 비율로 중심 위치 지정
   // absSize 없음 → 기존 방식(비율 곱)
+  // base is locked to the same flat room floor plate; never float furniture above the shared datum.
   return furnitureTemplateForMass(mass).map(item => {
     const iw = item.absSize ? item.w : Math.max(0.18, item.w * mass.w);
     const id = item.absSize ? item.d : Math.max(0.18, item.d * mass.d);
@@ -1541,6 +1543,7 @@ function build3DMassesFromGrid(valueGrid = grid, clusterSource = clusterGrid) {
   const masses = [];
   for (const value of values) {
     for (const rect of rectangulateClusteredValue(valueGrid, value, clusterSource)) {
+      // baseZ: GROUND_Z keeps every mass on the same flat room floor plate, while walls/furniture add only readable height cues.
       masses.push({x: rect.c, y: rect.r, w: rect.w, d: rect.h, h: massHeightForValue(value), baseZ: GROUND_Z, value: value, color: colorFor(value), label: labelFor(value), clusterId: rect.clusterId, furnitureSignature: furnitureSignatureForValue(value)});
     }
   }
@@ -1771,18 +1774,20 @@ function drawPatientBed(item, scale, offsetX, offsetY) {
   // 매트리스
   const mattress = childFurniture(item, {x:0.06, y:0.06, w:0.88, d:0.80}, {h:0.12, color:'#e0f2fe'});
   drawFurnitureVolume(mattress, scale, offsetX, offsetY, '#e0f2fe', 1.10);
+  drawRoundedProjectedTop(mattress, scale, offsetX, offsetY, 'rgba(240,249,255,0.92)', 'rgba(14,116,144,0.36)', 1.10, 0.08);
   drawFurnitureTopDetail(mattress, scale, offsetX, offsetY, 0.06, 'rgba(255,255,255,0.7)', 'rgba(51,65,85,0.3)');
   // 베개 (머리쪽 = y 큰 방향)
   const pillow = childFurniture(item, {x:0.16, y:0.72, w:0.68, d:0.16}, {h:0.06, color:'#ffffff'});
   drawFurnitureVolume(pillow, scale, offsetX, offsetY, '#ffffff', 0.80);
+  drawIsoEllipseCap(pillow, scale, offsetX, offsetY, 'rgba(255,255,255,0.96)', 'rgba(148,163,184,0.42)', 0.80, 0.012, 0.88, 0.78);
   // 헤드보드
   const hb = childFurniture(item, {x:0.03, y:0.90, w:0.94, d:0.06}, {h:0.22, color:'#334155'});
   drawFurnitureVolume(hb, scale, offsetX, offsetY, '#334155', 1.20);
   // 사이드레일
-  const railL = childFurniture(item, {x:0.02, y:0.12, w:0.04, d:0.62}, {h:0.08, color:'#94a3b8'});
-  const railR = childFurniture(item, {x:0.94, y:0.12, w:0.04, d:0.62}, {h:0.08, color:'#94a3b8'});
-  drawFurnitureVolume(railL, scale, offsetX, offsetY, '#94a3b8', 0.75);
-  drawFurnitureVolume(railR, scale, offsetX, offsetY, '#94a3b8', 0.75);
+  const railLeft = childFurniture(item, {x:0.02, y:0.12, w:0.04, d:0.62}, {h:0.08, color:'#94a3b8'});
+  const railRight = childFurniture(item, {x:0.94, y:0.12, w:0.04, d:0.62}, {h:0.08, color:'#94a3b8'});
+  drawFurnitureVolume(railLeft, scale, offsetX, offsetY, '#94a3b8', 0.75);
+  drawFurnitureVolume(railRight, scale, offsetX, offsetY, '#94a3b8', 0.75);
 }
 function drawHeadwall(item, scale, offsetX, offsetY) {
   drawFurnitureContactShadow(item, scale, offsetX, offsetY);
@@ -1791,9 +1796,12 @@ function drawHeadwall(item, scale, offsetX, offsetY) {
 }
 function drawToiletFixture(item, scale, offsetX, offsetY) {
   drawFurnitureContactShadow(item, scale, offsetX, offsetY);
+  const plinth = childFurniture(item, {x:0.08, y:0.20, w:0.84, d:0.74}, {h:0.05, color:'#e2e8f0'});
+  drawFurnitureVolume(plinth, scale, offsetX, offsetY, '#e2e8f0', 0.42);
   // 변기 본체
   const bowl = childFurniture(item, {x:0.10, y:0.22, w:0.80, d:0.70}, {h:0.12, color:'#ffffff'});
-  drawFurnitureVolume(bowl, scale, offsetX, offsetY, '#ffffff', 1.0);
+  drawCylinderFixture(bowl, scale, offsetX, offsetY, '#ffffff', 'rgba(2,132,199,0.40)', 0.82, 0.78, 0.62);
+  drawIsoEllipseCap(bowl, scale, offsetX, offsetY, '#bae6fd', 'rgba(2,132,199,0.5)', 0.82, 0.020, 0.54, 0.38);
   drawFurnitureTopDetail(bowl, scale, offsetX, offsetY, 0.12, '#bae6fd', 'rgba(2,132,199,0.5)');
   // 시트 테두리
   const rim = childFurniture(item, {x:0.12, y:0.24, w:0.76, d:0.66}, {h:0.02, color:'#0f172a'});
@@ -2146,6 +2154,7 @@ function initThreeViewer(masses) {
   threeScene.add(threeRoot);
 }
 function addWardFloorsAndWalls3D(masses) {
+  // WebGL room floor plate + low cutaway wall system: preserve readable room boundaries without returning to solid colored boxes.
   const b = usableBounds();
   if (b) addBox3D(threeRoot, b.minC, b.minR, b.maxC - b.minC + 1, b.maxR - b.minR + 1, 0.025, '#e5e7eb', -0.035, 'shared floor slab');
   for (const mass of masses) {

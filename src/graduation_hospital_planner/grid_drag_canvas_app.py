@@ -2152,49 +2152,69 @@ function addPrimitiveFurnitureItem3D(item) {
   const scaled = scaledFurnitureRect(item);
   const x = scaled.x, y = scaled.y, w = scaled.w, d = scaled.d;
   if (item.type === 'patient_bed') {
-    // 헤드보드: y 큰 쪽(헤드월 방향), 발치: y 작은 쪽(진입방향)
-    addBox3D(threeRoot, x + w*0.03, y + d*0.06, w*0.94, d*0.88, 0.10, '#64748b', z, 'bed steel frame');
-    addCapsule3D(threeRoot, x + w*0.08, y + d*0.10, w*0.84, d*0.80, 0.26, '#60a5fa', z + 0.09, 'blue rounded bed mattress');
-    addCapsule3D(threeRoot, x + w*0.20, y + d*0.66, w*0.60, d*0.18, 0.11, '#ffffff', z + 0.31, 'raised white bed pillow');
-    addBox3D(threeRoot, x + w*0.04, y + d*0.88, w*0.92, d*0.055, 0.30, '#334155', z + 0.08, 'headboard at head end');
-    addBox3D(threeRoot, x + w*0.02, y + d*0.14, w*0.045, d*0.60, 0.23, '#1e293b', z + 0.15, 'left vertical bed rail');
-    addBox3D(threeRoot, x + w*0.935, y + d*0.14, w*0.045, d*0.60, 0.23, '#1e293b', z + 0.15, 'right vertical bed rail');
-    addSlimCylinder3D(threeRoot, x + w*0.10, y + d*0.82, 0.018, 0.64, '#475569', z, 'IV pole at head side');
-    addSphere3D(threeRoot, x + w*0.10, y + d*0.82, 0.055, '#fbbf24', z + 0.70, 'IV bag marker');
+    // 프레임
+    addBox3D(threeRoot, x + w*0.03, y + d*0.04, w*0.94, d*0.92, 0.08, '#64748b', z, 'bed frame');
+    // 매트리스 (박스)
+    addBox3D(threeRoot, x + w*0.07, y + d*0.08, w*0.86, d*0.78, 0.20, '#e0f2fe', z + 0.07, 'mattress');
+    // 베개 (박스)
+    addBox3D(threeRoot, x + w*0.18, y + d*0.70, w*0.64, d*0.16, 0.09, '#ffffff', z + 0.27, 'pillow');
+    // 헤드보드 (머리쪽 = y 큰 방향)
+    addBox3D(threeRoot, x + w*0.03, y + d*0.88, w*0.94, d*0.06, 0.38, '#334155', z + 0.07, 'headboard');
+    // 좌우 사이드레일
+    addBox3D(threeRoot, x + w*0.02, y + d*0.12, w*0.04, d*0.64, 0.14, '#94a3b8', z + 0.22, 'left rail');
+    addBox3D(threeRoot, x + w*0.94, y + d*0.12, w*0.04, d*0.64, 0.14, '#94a3b8', z + 0.22, 'right rail');
+    // IV 폴 (머리맡)
+    addBox3D(threeRoot, x + w*0.08, y + d*0.80, w*0.04, d*0.04, 0.72, '#475569', z, 'IV pole');
+    addBox3D(threeRoot, x + w*0.06, y + d*0.78, w*0.08, d*0.08, 0.06, '#fbbf24', z + 0.70, 'IV bag');
   } else if (item.type === 'headwall') {
     addBox3D(threeRoot, x, y + d*0.05, w, d*0.28, 0.36, '#475569', z, 'dark medical headwall panel');
     addBox3D(threeRoot, x + w*0.12, y + d*0.11, w*0.22, d*0.08, 0.05, '#22c55e', z + 0.29, 'green gas outlet');
     addBox3D(threeRoot, x + w*0.42, y + d*0.11, w*0.22, d*0.08, 0.05, '#ef4444', z + 0.29, 'red suction outlet');
     addBox3D(threeRoot, x + w*0.72, y + d*0.11, w*0.16, d*0.08, 0.05, '#facc15', z + 0.29, 'yellow call outlet');
   } else if (item.type === 'toilet_fixture') {
-    addBox3D(threeRoot, x + w*0.08, y + d*0.08, w*0.84, d*0.84, 0.055, '#dbeafe', z, 'raised toilet plinth');
-    addCylinder3D(threeRoot, x + w*0.20, y + d*0.28, w*0.60, d*0.52, 0.20, '#ffffff', z + 0.05, 'white toilet bowl body');
-    addTorus3D(threeRoot, x + w*0.26, y + d*0.33, w*0.48, d*0.38, 0.018, '#0f172a', z + 0.27, 'dark oval toilet seat ring');
-    addCylinder3D(threeRoot, x + w*0.40, y + d*0.43, w*0.20, d*0.16, 0.025, '#38bdf8', z + 0.285, 'blue toilet water opening');
-    addBox3D(threeRoot, x + w*0.13, y + d*0.02, w*0.74, d*0.20, 0.24, '#e2e8f0', z + 0.06, 'rectangular toilet tank');
+    // 좌대 플린스
+    addBox3D(threeRoot, x + w*0.10, y + d*0.22, w*0.80, d*0.70, 0.14, '#ffffff', z, 'toilet bowl');
+    // 변기 시트 테두리
+    addBox3D(threeRoot, x + w*0.12, y + d*0.24, w*0.76, d*0.66, 0.04, '#0f172a', z + 0.14, 'toilet seat rim');
+    // 변기 안쪽
+    addBox3D(threeRoot, x + w*0.20, y + d*0.30, w*0.60, d*0.54, 0.03, '#bae6fd', z + 0.16, 'toilet bowl inside');
+    // 물탱크
+    addBox3D(threeRoot, x + w*0.14, y + d*0.02, w*0.72, d*0.20, 0.28, '#e2e8f0', z + 0.04, 'toilet tank');
   } else if (item.type === 'washbasin' || item.type === 'handwash_sink') {
-    addBox3D(threeRoot, x + w*0.06, y + d*0.02, w*0.88, d*0.18, 0.20, '#94a3b8', z + 0.02, 'basin wall bracket');
-    addCylinder3D(threeRoot, x + w*0.05, y + d*0.20, w*0.90, d*0.68, 0.18, '#e0f2fe', z + 0.02, 'rounded wall hung basin');
-    addTorus3D(threeRoot, x + w*0.20, y + d*0.32, w*0.60, d*0.42, 0.014, '#0ea5e9', z + 0.23, 'blue basin rim');
-    addSlimCylinder3D(threeRoot, x + w*0.50, y + d*0.22, 0.015, 0.22, '#334155', z + 0.18, 'short sink faucet');
-    addSphere3D(threeRoot, x + w*0.50, y + d*0.38, 0.035, '#0f172a', z + 0.245, 'dark basin drain');
+    // 벽 브래킷
+    addBox3D(threeRoot, x + w*0.06, y + d*0.02, w*0.88, d*0.14, 0.18, '#94a3b8', z + 0.02, 'basin bracket');
+    // 세면대 본체 (박스)
+    addBox3D(threeRoot, x + w*0.06, y + d*0.18, w*0.88, d*0.72, 0.14, '#e0f2fe', z + 0.18, 'basin bowl');
+    // 수전
+    addBox3D(threeRoot, x + w*0.44, y + d*0.20, w*0.12, d*0.10, 0.20, '#334155', z + 0.30, 'faucet');
+    // 배수구 표시
+    addBox3D(threeRoot, x + w*0.44, y + d*0.48, w*0.12, d*0.10, 0.02, '#0ea5e9', z + 0.32, 'drain');
   } else if (item.type === 'shower_zone') {
-    addBox3D(threeRoot, x, y, w, d, 0.045, '#93c5fd', z, 'blue square shower tray');
-    addBox3D(threeRoot, x + w*0.03, y + d*0.03, w*0.94, d*0.045, 0.28, '#60a5fa', z + 0.02, 'low shower screen edge');
-    addCylinder3D(threeRoot, x + w*0.38, y + d*0.38, w*0.22, d*0.22, 0.03, '#0f172a', z + 0.055, 'dark circular shower drain');
-    addSlimCylinder3D(threeRoot, x + w*0.82, y + d*0.18, 0.014, 0.54, '#2563eb', z, 'vertical shower riser');
-    addSphere3D(threeRoot, x + w*0.82, y + d*0.18, 0.060, '#2563eb', z + 0.57, 'round shower head');
+    // 샤워 트레이
+    addBox3D(threeRoot, x, y, w, d, 0.04, '#bfdbfe', z, 'shower tray');
+    // 샤워 스크린 (한쪽 면)
+    addBox3D(threeRoot, x + w*0.02, y, w*0.96, d*0.04, 0.30, '#93c5fd', z + 0.02, 'shower screen front');
+    // 배수구 표시
+    addBox3D(threeRoot, x + w*0.38, y + d*0.38, w*0.18, d*0.18, 0.02, '#1e40af', z + 0.04, 'drain');
+    // 샤워 헤드 폴
+    addBox3D(threeRoot, x + w*0.82, y + d*0.16, w*0.06, d*0.06, 0.58, '#2563eb', z, 'shower riser');
+    // 샤워 헤드
+    addBox3D(threeRoot, x + w*0.74, y + d*0.12, w*0.20, d*0.14, 0.06, '#3b82f6', z + 0.58, 'shower head');
   } else if (item.type === 'nurse_counter') {
     addBox3D(threeRoot, x, y, w*0.86, d*0.34, 0.32, '#14b8a6', z, 'long teal nurse counter front');
     addBox3D(threeRoot, x + w*0.55, y + d*0.38, w*0.36, d*0.52, 0.32, '#0d9488', z, 'perpendicular nurse counter return wing');
     addBox3D(threeRoot, x + w*0.08, y + d*0.07, w*0.18, d*0.06, 0.18, '#1e293b', z + 0.30, 'nurse station monitor one');
     addBox3D(threeRoot, x + w*0.35, y + d*0.07, w*0.18, d*0.06, 0.18, '#1e293b', z + 0.30, 'nurse station monitor two');
   } else if (item.type === 'waste_bin') {
-    addCylinder3D(threeRoot, x, y, w, d, 0.28, item.color || '#ef4444', z, 'red cylindrical waste bin body');
-    addTorus3D(threeRoot, x + w*0.08, y + d*0.08, w*0.84, d*0.84, 0.014, '#7f1d1d', z + 0.30, 'dark waste bin rim');
+    // 폐기물통 본체 (박스)
+    addBox3D(threeRoot, x + w*0.08, y + d*0.08, w*0.84, d*0.84, 0.28, item.color || '#ef4444', z, 'waste bin');
+    // 뚜껑 테두리
+    addBox3D(threeRoot, x + w*0.06, y + d*0.06, w*0.88, d*0.88, 0.03, '#7f1d1d', z + 0.27, 'bin rim');
   } else if (item.type === 'ppe_bench') {
-    addCapsule3D(threeRoot, x, y, w, d, 0.16, item.color || '#f59e0b', z, 'amber rounded PPE bench seat');
-    addBox3D(threeRoot, x + w*0.08, y + d*0.18, w*0.84, d*0.12, 0.12, '#92400e', z + 0.13, 'dark bench back rail');
+    // 벤치 본체
+    addBox3D(threeRoot, x, y, w, d, 0.16, item.color || '#f59e0b', z, 'PPE bench seat');
+    // 등받이 레일
+    addBox3D(threeRoot, x + w*0.04, y + d*0.78, w*0.92, d*0.10, 0.22, '#92400e', z + 0.14, 'bench back rail');
   } else if (item.type === 'workstation') {
     addBox3D(threeRoot, x, y, w, d, 0.18, '#2dd4bf', z, 'teal workstation desk slab');
     addBox3D(threeRoot, x + w*0.18, y + d*0.08, w*0.64, d*0.10, 0.26, '#0f172a', z + 0.16, 'large black computer monitor');

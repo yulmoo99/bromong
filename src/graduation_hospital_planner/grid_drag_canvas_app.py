@@ -1819,6 +1819,24 @@ function sceneCenterFromMasses(masses) {
 function makeMat(color, roughness = 0.72, metalness = 0.02, opacity = 1) {
   return new THREE.MeshStandardMaterial({color: threeHex(color), roughness, metalness, transparent: opacity < 1, opacity});
 }
+function brightenModelMaterial(mat, factor = 1.42) {
+  if (!mat) return mat;
+  mat.roughness = Math.min(0.95, Math.max(0.78, mat.roughness || 0.78));
+  mat.metalness = 0.0;
+  if (mat.color) {
+    const hsl = {};
+    mat.color.getHSL(hsl);
+    // Small GLB details such as bed rails and shelving frames must read by silhouette, not collapse into black strokes.
+    hsl.l = Math.min(0.86, Math.max(0.46, hsl.l * factor + 0.12));
+    hsl.s = Math.min(0.80, hsl.s * 1.04);
+    mat.color.setHSL(hsl.h, hsl.s, hsl.l);
+  }
+  if (mat.emissive) {
+    mat.emissive.copy(mat.color || new THREE.Color(0xffffff)).multiplyScalar(0.035);
+  }
+  mat.needsUpdate = true;
+  return mat;
+}
 function addMesh(mesh, x, y, z, parent = threeRoot) {
   mesh.position.copy(threePos(x, y, z));
   parent.add(mesh);
@@ -1936,9 +1954,12 @@ function initThreeViewer(masses) {
   threeCamera = new THREE.OrthographicCamera(-view * aspect, view * aspect, view, -view, 0.1, 200);
   applyThreeCameraPanVector();
   applyThreeCameraZoom();
-  threeScene.add(new THREE.AmbientLight(0xffffff, 0.66));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.15);
+  threeScene.add(new THREE.HemisphereLight(0xffffff, 0xdbeafe, 0.92));
+  threeScene.add(new THREE.AmbientLight(0xffffff, 0.82));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.05);
   sun.position.set(15, 28, 18); sun.castShadow = true; threeScene.add(sun);
+  const fill = new THREE.DirectionalLight(0xe0f2fe, 0.48);
+  fill.position.set(-18, 16, -14); threeScene.add(fill);
   threeRoot = new THREE.Group();
   threeRoot.rotation.y = threeDRotation.z;
   // Orthographic isometric projection naturally pushes the plan upward; lower the root in camera-space so the ward reads centered in the canvas.
@@ -2067,7 +2088,10 @@ function prepareFurnitureModelInstance(model, item, x, y, w, d, z) {
   instance.traverse(obj => {
     if (obj.isMesh) {
       obj.castShadow = true; obj.receiveShadow = true;
-      if (obj.material) obj.material = obj.material.clone();
+      if (obj.material) {
+        if (Array.isArray(obj.material)) obj.material = obj.material.map(m => brightenModelMaterial(m.clone()));
+        else obj.material = brightenModelMaterial(obj.material.clone());
+      }
     }
   });
   const sourceBox = new THREE.Box3().setFromObject(instance);

@@ -21,13 +21,15 @@ class Prim:
     material: int
 
 MATS = [
-    ("bed blue", (0.24,0.55,0.95,1)), ("white ceramic", (0.95,0.97,1.0,1)),
-    ("dark metal", (0.10,0.14,0.20,1)), ("soft grey", (0.55,0.62,0.70,1)),
-    ("glass blue", (0.45,0.72,1.0,0.42)), ("warm wood", (0.72,0.50,0.28,1)),
-    ("green clinical", (0.32,0.78,0.62,1)), ("red clinical", (0.90,0.25,0.24,1)),
-    ("yellow ppe", (0.96,0.76,0.22,1)), ("teal screen", (0.23,0.74,0.85,1)),
+    ("bed blue", (0.50,0.72,1.00,1)), ("white ceramic", (0.98,0.99,1.0,1)),
+    # Keep equipment outlines visible without turning small details into black blobs in the WebGL viewer.
+    ("light satin metal", (0.58,0.66,0.76,1)), ("soft grey", (0.76,0.82,0.90,1)),
+    ("glass blue", (0.62,0.82,1.0,0.42)), ("warm wood", (0.82,0.62,0.38,1)),
+    ("green clinical", (0.60,0.90,0.76,1)), ("red clinical", (0.95,0.42,0.40,1)),
+    ("yellow ppe", (1.00,0.84,0.32,1)), ("teal screen", (0.42,0.86,0.92,1)),
 ]
 MAT = {name:i for i,(name,_) in enumerate(MATS)}
+MAT['dark metal'] = MAT['light satin metal']  # Backward-compatible alias for model definitions.
 
 def transform(v, loc=(0,0,0), scale=(1,1,1)):
     return (v[0]*scale[0]+loc[0], v[1]*scale[1]+loc[1], v[2]*scale[2]+loc[2])
@@ -121,7 +123,7 @@ def write_glb(path: Path, prims: list[Prim]):
         nodes.append({"name":p.name,"mesh":len(meshes)-1})
     materials=[]
     for name,rgba in MATS:
-        materials.append({"name":name,"pbrMetallicRoughness":{"baseColorFactor":rgba,"roughnessFactor":0.68,"metallicFactor":0.04},"alphaMode":"BLEND" if rgba[3]<1 else "OPAQUE"})
+        materials.append({"name":name,"pbrMetallicRoughness":{"baseColorFactor":rgba,"roughnessFactor":0.82,"metallicFactor":0.0},"alphaMode":"BLEND" if rgba[3]<1 else "OPAQUE"})
     gltf={"asset":{"version":"2.0","generator":"ward-furniture-generator"},"scene":0,"scenes":[{"nodes":list(range(len(nodes)))}],"nodes":nodes,"meshes":meshes,"materials":materials,"buffers":[{"byteLength":len(bin_blob)}],"bufferViews":buffer_views,"accessors":accessors}
     j=json.dumps(gltf,separators=(',',':')).encode(); j += b' ' * ((4-len(j)%4)%4)
     pad4(bin_blob)

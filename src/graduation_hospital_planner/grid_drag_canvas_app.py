@@ -2337,13 +2337,9 @@ async function addModelFurnitureItem3D(item) {
   return true;
 }
 async function addFurnitureItem3D(item) {
-  try {
-    if (await addModelFurnitureItem3D(item)) return 'model';
-  } catch (err) {
-    console.warn('Falling back to primitive furniture for', item.type, err);
-  }
+  // GLB 모델 대신 primitive 렌더러 사용 (크기·형태 직접 제어)
   addPrimitiveFurnitureItem3D(item);
-  return 'primitive-fallback';
+  return 'primitive';
 }
 
 async function renderSelectedLayout3D() {

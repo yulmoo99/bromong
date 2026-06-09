@@ -138,13 +138,13 @@ labels = {"10": "C", "20": "R", "21": "A", "22": "WC", "30": "N", "40": "CL", "4
 legend_items = [
     ("1", "usable area"),
     ("10", "controlled corridor / C"),
-    ("20", "negative room / R / verified area ≥10㎡"),
-    ("21", "anteroom / A / required, size source-needed"),
-    ("22", "toilet·shower / WC / required, size source-needed"),
-    ("30", "nurse station / N / operation-required, size source-needed"),
-    ("40", "clean supply alcove / CL / compact placeholder"),
-    ("41", "soiled waste holding / D / compact placeholder"),
-    ("50", "support reserve / S / neutral infill"),
+    ("20", "negative room / R / 법적 기준: 1인실 ≥10㎡ (전실·화장실 제외, 의료법 시행규칙 별표4)"),
+    ("21", "anteroom / A / 필수 설치 (법적 최소면적 규정 없음, 가이드라인 권장 9㎡)"),
+    ("22", "toilet·shower / WC / 필수 설치 (법적 최소면적 규정 없음, 가이드라인 권장 9㎡)"),
+    ("30", "nurse station / N / 운영 필수 (법적 최소면적 규정 없음, 가이드라인 권장 13.5㎡)"),
+    ("40", "clean supply alcove / CL / 가이드라인 권장 배치"),
+    ("41", "soiled waste holding / D / 가이드라인 권장 배치"),
+    ("50", "support reserve / S / 잔여 공간 채움"),
 ]
 legend_html = "\n".join(
     f'<span><i class="swatch" style="background:{colors[k]}"></i>{name}</span>' for k, name in legend_items
@@ -225,8 +225,15 @@ html_template = Template(r'''
     </div>
     <div id="legend">${legend_html}</div>
   </section>
-  <div id="moduleInfo">Hover a module cell to see source/confidence. R area is grounded by Korean MOHW 2024: general inpatient negative-pressure room ≥10㎡, excluding anteroom and toilet/shower.</div>
-  <div id="ruleReport">Click <b>Check Ward Rules</b> after placement to see compact ward rule checks.</div>
+  <div id="legalNotice" style="max-width:${canvas_w}px;margin:16px 0 0;padding:14px 18px;background:rgba(255,246,230,.92);border:1px solid rgba(245,158,11,.45);border-radius:18px;font-size:11.5px;color:#92400e;line-height:1.6;">
+    <b>⚠️ 법규 적용 범위 안내</b><br>
+    음압격리병실(R) 면적 기준은 <b>의료법 시행규칙 별표4</b> 및 <b>보건복지부 감염병 전담병원 설계 가이드라인(2024)</b>을 근거로 합니다.<br>
+    전실(A)·화장실(WC)·간호스테이션(N)의 면적은 <b>법적 최소 기준이 없으며</b>, 표시된 수치는 가이드라인 권장값입니다. 실제 설계 시 관련 전문가 검토가 필요합니다.<br>
+    복도 폭 기준: 메인 복도 3.0m(권장), 연결 복도 1.5m(단기 구간 한정) — 법적 최소 입원실 복도 폭 2.4m(의료법 시행규칙 별표4).<br>
+    본 도구는 초기 매싱 계획 지원용이며 <b>소방법, 장애인편의시설법 등은 별도 검토</b>가 필요합니다.
+  </div>
+  <div id="moduleInfo">모듈 셀에 마우스를 올리면 법적 근거 및 권장 면적을 확인할 수 있습니다. R(음압격리병실): 법적 기준 ≥10㎡ (전실·화장실 제외, 의료법 시행규칙 별표4).</div>
+  <div id="ruleReport">배치 후 <b>Check Ward Rules</b> 버튼을 눌러 병동 규칙 검토 결과를 확인하세요.</div>
   <div id="optionPanel">Auto Layout v2 comparison will appear here after <b>Generate Layout Options</b>.</div>
   <div id="threeDPanel"><b>3D mass viewer</b><span class="small">Select or generate a layout, then click <b>View Selected Layout in 3D</b>. Left-drag to rotate, wheel to zoom, right-drag or middle-drag to pan after zooming.</span><div id="threeDStatus" class="small"></div><canvas id="threeDCanvas" width="${canvas_w}" height="420"></canvas></div>
   <textarea id="output" readonly></textarea>
@@ -1315,15 +1322,52 @@ function compareLayoutOptions() {
   compareAnalysis = layoutOptions.map((opt, idx) => ({idx, signature: distinctSignature(opt.grid), score: opt.score.score}));
   return compareAnalysis;
 }
+function drawMiniPreview(canvasId, optGrid) {
+  const mc = document.getElementById(canvasId);
+  if (!mc) return;
+  const mctx = mc.getContext('2d');
+  const mCols = optGrid[0].length, mRows = optGrid.length;
+  const cs = Math.max(2, Math.floor(mc.width / mCols));
+  mc.height = cs * mRows;
+  mctx.clearRect(0, 0, mc.width, mc.height);
+  for (let r = 0; r < mRows; r++) {
+    for (let c = 0; c < mCols; c++) {
+      const v = optGrid[r][c];
+      mctx.fillStyle = colors[String(v)] || '#ffffff';
+      mctx.fillRect(c * cs, r * cs, cs, cs);
+    }
+  }
+}
 function renderOptionPanel() {
   compareLayoutOptions();
-  let html = '<b>Auto Layout v2 Options</b><ul>';
+  const previewW = Math.min(280, Math.floor((canvas.width - 60) / Math.max(1, layoutOptions.length)));
+  let html = '<b style="font-size:14px;letter-spacing:-.018em;">Auto Layout v2 — 3가지 배치안 비교</b>';
+  html += '<div style="display:flex;gap:14px;margin-top:14px;flex-wrap:wrap;">';
   layoutOptions.forEach((opt, idx) => {
     const label = strategyLabelForIndex(idx, opt.corridorStrategy);
-    html += '<li class="option-card"><button onclick="selectLayoutOption(' + idx + ')">Select</button><b>Option ' + (idx+1) + '</b> — ' + label + '<br/><span class="small">corridorStrategy: ' + opt.corridorStrategy + '<br/>moduleShapeSignature: ' + moduleShapeSignature() + '<br/>distinctSignature: ' + distinctSignature(opt.grid) + '<br/>strategyLayoutHash: ' + strategyLayoutHash(opt.grid).slice(0,80) + '… / score ' + opt.score.score.toFixed(1) + '</span></li>';
+    const sig = distinctSignature(opt.grid);
+    const bedCount = (sig.match(/R(\d+)/) || [])[1] || '?';
+    const roomCells = parseInt(bedCount, 10) || 0;
+    const bedEst = Math.floor(roomCells / (unifiedSuitePreset.up_down.roomH * unifiedSuitePreset.up_down.roomW));
+    const areaScore = (opt.score.areaFillScore * 100).toFixed(0);
+    html += '<div class="option-card" style="flex:1;min-width:' + previewW + 'px;max-width:340px;padding:14px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+    html += '<b>옵션 ' + (idx+1) + '</b>';
+    html += '<button onclick="selectLayoutOption(' + idx + ')" style="font-size:11px;padding:6px 12px;">이 안 선택</button>';
+    html += '</div>';
+    html += '<canvas id="miniPreview' + idx + '" width="' + previewW + '" style="width:100%;border-radius:10px;border:1px solid rgba(210,210,215,.7);display:block;"></canvas>';
+    html += '<div class="small" style="margin-top:8px;">';
+    html += '<b style="color:#1D1D1F;">' + label + '</b><br/>';
+    html += '배치 병상: <b>' + bedEst + '개</b> &nbsp;|&nbsp; 공간 이용률: <b>' + areaScore + '%</b><br/>';
+    html += '<span style="color:#aaa;">전략: ' + opt.corridorStrategy + '</span>';
+    html += '</div></div>';
   });
-  html += '</ul>';
+  html += '</div>';
+  html += '<p class="small" style="margin-top:10px;color:#6E6E73;">※ 이용률(%)은 usable area 대비 모듈 배치 면적 비율입니다. 높을수록 공간 효율이 좋으나, 감염병동 특성상 과밀 여부도 함께 검토하세요.</p>';
   optionPanel.innerHTML = html;
+  layoutOptions.forEach((opt, idx) => {
+    drawMiniPreview('miniPreview' + idx, opt.grid);
+  });
 }
 function generateLayoutOptions() {
   const targetBeds = Math.max(2, Math.min(24, Number(document.getElementById('bedCount').value || 8)));

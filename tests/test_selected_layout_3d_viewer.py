@@ -314,13 +314,16 @@ def test_primary_furniture_is_not_line_art_or_translucent_patch_regression():
 
 def test_threejs_furniture_uses_glb_models_without_billboard_labels():
     text = source()
-    assert "const THREE_FURNITURE_SCALE = 1.28" in text
+    assert "const THREE_FURNITURE_SCALE = 1.38" in text
     assert "function scaledFurnitureRect" in text
     assert "GLTFLoader" in text
     assert "FURNITURE_MODEL_URLS" in text
     assert "FURNITURE_MODEL_BY_TYPE" in text
     assert "function addModelFurnitureItem3D" in text
     assert "function addPrimitiveFurnitureItem3D" in text
+    assert "function addFurnitureEdgeLines" in text
+    assert "THREE.EdgesGeometry" in text
+    assert "semantic furniture silhouette edges" in text
     assert "function addFurnitureLabelSprite" not in text
     assert "function furnitureReadableLabel" not in text
     assert "THREE_FURNITURE_LABEL" not in text
@@ -328,7 +331,7 @@ def test_threejs_furniture_uses_glb_models_without_billboard_labels():
     assert "readable furniture labels" not in text
     assert "No in-scene text labels" in text
     assert "GLB-backed low-poly medical furniture models" in text
-    assert "const view = Math.max(8, threeSceneCenter.span * 0.56)" in text
+    assert "const view = Math.max(7.2, threeSceneCenter.span * 0.50)" in text
     furniture_window = text[text.index("function furnitureModelKeyForItem"):text.index("function renderSelectedLayout3D")]
     for cue in [
         "hospital_bed", "toilet", "washbasin", "shower", "nurse_counter",
@@ -337,6 +340,19 @@ def test_threejs_furniture_uses_glb_models_without_billboard_labels():
     ]:
         assert cue in furniture_window or cue in text
     assert "addFurnitureLabelSprite" not in furniture_window
+
+
+def test_generated_glb_source_separates_bed_and_shelf_silhouettes():
+    generator = (ROOT / "scripts" / "generate_ward_furniture_glb.py").read_text(encoding="utf-8")
+    assert "Low, long bed silhouette" in generator
+    assert "thin wheeled hospital bed deck" in generator
+    assert "large rectangular blue mattress top" in generator
+    assert "clear white pillow block at bed head" in generator
+    assert "Open rack silhouette" in generator
+    assert "thin upright shelf post" in generator
+    assert "open white shelf board" in generator
+    assert "blue folded linen stack" in generator
+    assert "open supply shelving tall frame" not in generator
 
 
 def test_glb_furniture_assets_exist_for_primary_medical_equipment():

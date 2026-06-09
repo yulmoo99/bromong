@@ -213,7 +213,7 @@ const FURNITURE_MIN_VISUAL_HEIGHT = 0.12; // prevents beds/counters from reading
 const FURNITURE_BASE_Z = FINISHED_FLOOR_Z; // logical datum stays floor-level; drawing uses a tiny visual intersection so objects read grounded.
 const PLAN_ZOOM_MAX = 4.0;
 const THREE_D_ZOOM_MAX = 18.0;
-const THREE_D_ZOOM_BASE = 1.18;
+const THREE_D_ZOOM_BASE = 1.36;
 const THREE_D_WHEEL_ZOOM_IN = 1.28;
 const THREE_D_WHEEL_ZOOM_OUT = 0.82;
 const FURNITURE_LIBRARY = {
@@ -1805,7 +1805,7 @@ let threeSceneCenter = {x: cols / 2, y: rows / 2};
 const THREE_CELL_M = 1.0;
 const THREE_ROOM_HEIGHT = 0.06;
 const THREE_WALL_HEIGHT = 0.42;
-const THREE_FURNITURE_SCALE = 1.28;
+const THREE_FURNITURE_SCALE = 1.38;
 function threeHex(hex) { return new THREE.Color(hex || '#999999'); }
 function threePos(x, y, z = 0) { return new THREE.Vector3((x - threeSceneCenter.x) * THREE_CELL_M, z, (y - threeSceneCenter.y) * THREE_CELL_M); }
 function sceneCenterFromMasses(masses) {
@@ -1836,6 +1836,19 @@ function brightenModelMaterial(mat, factor = 1.42) {
   }
   mat.needsUpdate = true;
   return mat;
+}
+function addFurnitureEdgeLines(mesh) {
+  if (!mesh || !mesh.geometry) return;
+  const edges = new THREE.EdgesGeometry(mesh.geometry, 25);
+  const lines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({
+    color: 0x334155,
+    transparent: true,
+    opacity: 0.58,
+    depthTest: true,
+  }));
+  lines.name = 'semantic furniture silhouette edges';
+  lines.renderOrder = 6;
+  mesh.add(lines);
 }
 function addMesh(mesh, x, y, z, parent = threeRoot) {
   mesh.position.copy(threePos(x, y, z));
@@ -1950,7 +1963,7 @@ function initThreeViewer(masses) {
   threeScene = new THREE.Scene();
   threeScene.background = new THREE.Color(0xf8fafc);
   const aspect = threeDCanvas.width / threeDCanvas.height;
-  const view = Math.max(8, threeSceneCenter.span * 0.56);
+  const view = Math.max(7.2, threeSceneCenter.span * 0.50);
   threeCamera = new THREE.OrthographicCamera(-view * aspect, view * aspect, view, -view, 0.1, 200);
   applyThreeCameraPanVector();
   applyThreeCameraZoom();
@@ -2092,6 +2105,7 @@ function prepareFurnitureModelInstance(model, item, x, y, w, d, z) {
         if (Array.isArray(obj.material)) obj.material = obj.material.map(m => brightenModelMaterial(m.clone()));
         else obj.material = brightenModelMaterial(obj.material.clone());
       }
+      addFurnitureEdgeLines(obj);
     }
   });
   const sourceBox = new THREE.Box3().setFromObject(instance);

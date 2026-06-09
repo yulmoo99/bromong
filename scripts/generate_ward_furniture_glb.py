@@ -132,7 +132,20 @@ def write_glb(path: Path, prims: list[Prim]):
         f.write(struct.pack('<4sII',b'glTF',2,total)); f.write(struct.pack('<I4s',len(j),b'JSON')); f.write(j); f.write(struct.pack('<I4s',len(bin_blob),b'BIN\0')); f.write(bin_blob)
 
 def model_patient_bed():
-    return [box('hospital bed wheeled steel frame',1.0,.10,.55,(0,.10,0),MAT['dark metal']), ellipsoid('single curved blue hospital mattress',.44,.10,.24,(0,.21,0),MAT['bed blue'], upper_only=True), ellipsoid('raised pillow cushion',.28,.06,.11,(-.23,.37,-.12),MAT['white ceramic'], upper_only=True), box('tall bed headboard',.08,.42,.60,(-.54,.24,0),MAT['dark metal']), cyl('left tubular side rail',.018,.018,.48,(0,.30,-.31),MAT['dark metal'],16), cyl('right tubular side rail',.018,.018,.48,(0,.30,.31),MAT['dark metal'],16), cyl('iv pole',.014,.014,.72,(.48,.10,-.28),MAT['dark metal'],12), ellipsoid('hanging iv bag',.055,.075,.025,(.48,.82,-.28),MAT['yellow ppe'])]
+    # Low, long bed silhouette: visible mattress/pillow/rails, but no tall blocky mass that can read as shelving.
+    return [
+        box('thin wheeled hospital bed deck',1.10,.045,.50,(0,.095,0),MAT['light satin metal']),
+        box('large rectangular blue mattress top',.94,.075,.42,(0,.155,0),MAT['bed blue']),
+        ellipsoid('rounded blue mattress crown',.47,.045,.20,(0,.205,0),MAT['bed blue'], upper_only=True),
+        box('clear white pillow block at bed head',.30,.055,.18,(-.32,.255,-.11),MAT['white ceramic']),
+        box('flat head foot board head',.035,.20,.52,(-.56,.18,0),MAT['soft grey']),
+        box('flat foot board',.030,.14,.48,(.56,.16,0),MAT['soft grey']),
+        cyl('left raised tubular bed rail',.012,.012,.46,(-.02,.22,-.285),MAT['light satin metal'],12),
+        cyl('right raised tubular bed rail',.012,.012,.46,(-.02,.22,.285),MAT['light satin metal'],12),
+        *[cyl('small bed caster wheel',.025,.025,.025,(x,.045,z),MAT['light satin metal'],10) for x in (-.42,.42) for z in (-.20,.20)],
+        cyl('slender iv pole kept secondary',.008,.008,.38,(.49,.10,-.25),MAT['light satin metal'],10),
+        ellipsoid('small yellow iv bag',.030,.040,.016,(.49,.49,-.25),MAT['yellow ppe'])
+    ]
 def model_toilet():
     return [box('toilet base plinth',.42,.08,.48,(0,.04,0),MAT['soft grey']), ellipsoid('rounded ceramic toilet bowl',.23,.14,.19,(0,.10,.04),MAT['white ceramic'],upper_only=True), torus('open toilet seat ring',.17,.025,(0,.28,.04),MAT['dark metal']), box('rectangular flush tank',.44,.25,.12,(-.02,.20,-.25),MAT['white ceramic'])]
 def model_basin():
@@ -144,7 +157,16 @@ def model_counter():
 def model_cart():
     return [box('medical cart body with drawer stack',.38,.42,.32,(0,.26,0),MAT['teal screen']), box('top tray lip',.44,.045,.38,(0,.50,0),MAT['dark metal']), cyl('left cart handle post',.015,.015,.42,(-.24,.24,-.17),MAT['dark metal'],12), cyl('right cart handle post',.015,.015,.42,(-.24,.24,.17),MAT['dark metal'],12), *[cyl('small caster wheel',.045,.045,.035,(x,.02,z),MAT['dark metal'],12) for x in (-.17,.17) for z in (-.14,.14)]]
 def model_shelf():
-    return [box('open supply shelving tall frame',.38,.72,.18,(0,.36,0),MAT['green clinical']), box('shelf level 1',.42,.035,.22,(0,.18,0),MAT['white ceramic']), box('shelf level 2',.42,.035,.22,(0,.38,0),MAT['white ceramic']), box('shelf level 3',.42,.035,.22,(0,.58,0),MAT['white ceramic'])]
+    # Open rack silhouette: four posts, three shelves, and small stocked boxes instead of a solid cabinet block.
+    posts = [box('thin upright shelf post',.024,.76,.024,(x,.38,z),MAT['light satin metal']) for x in (-.25,.25) for z in (-.15,.15)]
+    shelves = [box(f'open white shelf board {i}',.56,.024,.34,(0,y,0),MAT['white ceramic']) for i,y in enumerate((.16,.38,.60),1)]
+    back_rails = [box(f'visible rear rack rail {i}',.56,.018,.020,(0,y,-.17),MAT['light satin metal']) for i,y in enumerate((.26,.49,.71),1)]
+    stock = [
+        box('blue folded linen stack',.16,.075,.13,(-.14,.215,-.055),MAT['bed blue']),
+        box('yellow ppe supply box',.15,.085,.12,(.13,.445,.055),MAT['yellow ppe']),
+        box('teal sterile pack stack',.15,.070,.12,(-.10,.675,.055),MAT['teal screen']),
+    ]
+    return posts + shelves + back_rails + stock
 def model_bench(): return [box('ppe bench wooden seat',.72,.12,.22,(0,.28,0),MAT['warm wood']), *[cyl('bench round leg',.025,.025,.26,(x,0,z),MAT['dark metal'],10) for x in (-.28,.28) for z in (-.08,.08)]]
 def model_cabinet(): return [box('tall ppe cabinet body',.38,.82,.28,(0,.41,0),MAT['yellow ppe']), box('cabinet door seam',.015,.76,.30,(0,.43,0),MAT['dark metal'])]
 def model_waste_bin(): return [cyl('round clinical waste bin tapered body',.17,.17,.34,(0,.02,0),MAT['red clinical'],28), torus('dark waste bin rim',.17,.018,(0,.38,0),MAT['dark metal'])]

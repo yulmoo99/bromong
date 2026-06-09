@@ -2155,25 +2155,29 @@ function addWardFloorsAndWalls3D(masses) {
   // 병실(R) 경계에만 벽 생성 — 병실 셀에 인접한 면에만 벽을 세움
   const t = 0.055;
   const suiteTypes = new Set([moduleCodes.negative_pressure_patient_room, moduleCodes.anteroom, moduleCodes.ensuite_toilet_shower]);
-  // 벽 조건: 인접 두 셀의 값이 다르고, 둘 중 하나 이상이 suite 타입(R/A/WC)
-  // → suite 외곽 + suite 내부 타입 간 경계(R↔A, A↔WC 등) 모두 포함
-  // → 복도↔간호스테이션 등 suite 무관 경계는 제외
+  // 벽 조건:
+  // 1) 두 셀 타입이 다르고 하나 이상이 suite 타입 → 벽
+  // 2) 두 셀이 같은 suite 타입(R↔R 등)이라도 clusterGrid가 다르면(다른 스위트) → 벽
+  function needsWall(r1, c1, r2, c2) {
+    const v1 = grid[r1][c1], v2 = grid[r2][c2];
+    const s1 = suiteTypes.has(v1), s2 = suiteTypes.has(v2);
+    if (!s1 && !s2) return false;
+    if (v1 !== v2) return true;
+    // 같은 타입: 다른 클러스터이면 벽 (인접 병실)
+    return clusterGrid[r1][c1] !== clusterGrid[r2][c2];
+  }
   // 수직 경계: (r, c)와 (r, c+1) 사이
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols - 1; c++) {
-      const left = grid[r][c], right = grid[r][c + 1];
-      if (left === right) continue;
-      if (!suiteTypes.has(left) && !suiteTypes.has(right)) continue;
-      addBox3D(threeRoot, c + 1 - t / 2, r, t, 1, THREE_WALL_HEIGHT, '#cbd5e1', THREE_ROOM_HEIGHT, 'suite wall');
+      if (needsWall(r, c, r, c + 1))
+        addBox3D(threeRoot, c + 1 - t / 2, r, t, 1, THREE_WALL_HEIGHT, '#cbd5e1', THREE_ROOM_HEIGHT, 'suite wall');
     }
   }
   // 수평 경계: (r, c)와 (r+1, c) 사이
   for (let r = 0; r < rows - 1; r++) {
     for (let c = 0; c < cols; c++) {
-      const top = grid[r][c], bottom = grid[r + 1][c];
-      if (top === bottom) continue;
-      if (!suiteTypes.has(top) && !suiteTypes.has(bottom)) continue;
-      addBox3D(threeRoot, c, r + 1 - t / 2, 1, t, THREE_WALL_HEIGHT, '#f1f5f9', THREE_ROOM_HEIGHT, 'suite wall');
+      if (needsWall(r, c, r + 1, c))
+        addBox3D(threeRoot, c, r + 1 - t / 2, 1, t, THREE_WALL_HEIGHT, '#f1f5f9', THREE_ROOM_HEIGHT, 'suite wall');
     }
   }
 }
@@ -2241,10 +2245,10 @@ function addPrimitiveFurnitureItem3D(item) {
     // 뚜껑 테두리
     addBox3D(threeRoot, x + w*0.06, y + d*0.06, w*0.88, d*0.88, 0.03, '#7f1d1d', z + 0.27, 'bin rim');
   } else if (item.type === 'ppe_bench') {
-    // 벤치 본체
-    addBox3D(threeRoot, x, y, w, d, 0.16, item.color || '#f59e0b', z, 'PPE bench seat');
-    // 등받이 레일
-    addBox3D(threeRoot, x + w*0.04, y + d*0.78, w*0.92, d*0.10, 0.22, '#92400e', z + 0.14, 'bench back rail');
+    // 벤치 시트
+    addBox3D(threeRoot, x, y, w, d, 0.14, item.color || '#f59e0b', z, 'PPE bench seat');
+    // 쿠션 상판
+    addBox3D(threeRoot, x + w*0.04, y + d*0.04, w*0.92, d*0.92, 0.04, '#fef3c7', z + 0.13, 'bench cushion top');
   } else if (item.type === 'workstation') {
     addBox3D(threeRoot, x, y, w, d, 0.18, '#2dd4bf', z, 'teal workstation desk slab');
     addBox3D(threeRoot, x + w*0.18, y + d*0.08, w*0.64, d*0.10, 0.26, '#0f172a', z + 0.16, 'large black computer monitor');

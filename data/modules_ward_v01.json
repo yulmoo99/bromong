@@ -1,0 +1,584 @@
+{
+  "version": "0.2",
+  "scope": "compact infectious disease ward cluster / 병동 우선",
+  "status_note": "v0.2 separates verified legal area, guideline planning area, and rectangular/aspect-ratio shape policies. Only legal_basis values are legal minima; planning_area_m2 and shape_policy are design/algorithm guidance.",
+  "grid_assumption": {
+    "default_cell_size_m": 1.5,
+    "cell_area_m2": 2.25,
+    "note": "1.5m grid is a planning grid for early massing. It does not replace detailed room dimensioning. Area-based legal minima are converted to conservative grid blocks where possible."
+  },
+  "sources": [
+    {
+      "id": "KR_MOHW_2024_NEG_PRESSURE",
+      "title": "음압격리병실 설치 및 운영에 관한 고시 [별표] 음압격리병실의 설치 및 운영기준",
+      "issuer": "보건복지부",
+      "effective": "2024-10-25",
+      "url": "https://law.go.kr/admRulLsInfoP.do?admRulSeq=2100000248624",
+      "local_file": "research_sources/korea_negative_pressure_isolation_standard_2024.pdf",
+      "key_points": [
+        "일반입원실 음압병실: 병상 1개당 10㎡ 이상, 다인실 6.3㎡ 이상",
+        "음압격리병실 면적에는 화장실(샤워실) 및 전실 면적 불포함",
+        "전실은 음압병실 출입구에 설치, 음압병실과 전실 출입문 동시 개폐 방지",
+        "화장실(샤워시설)은 음압병상이 있는 공간에 설치, 중환자실은 제외 가능",
+        "음압병상 공간-전실, 음압구역-비음압구역 간 음압차 각각 -2.5Pa 이상 유지",
+        "음압병상이 있는 공간과 전실은 환기횟수 6회/시간 이상"
+      ]
+    },
+    {
+      "id": "CDC_ENV_AIR",
+      "title": "CDC Guidelines for Environmental Infection Control in Health-Care Facilities - Air / Appendix B",
+      "url": "https://www.cdc.gov/infection-control/hcp/environmental-control/appendix-b-air.html",
+      "key_points": [
+        "AIIR air movement relationship to adjacent area: In",
+        "Minimum total air changes per hour: 12 for new construction/renovation in CDC table",
+        "All air exhausted directly to outdoors: Yes",
+        "Anteroom/alcove: In/Out, minimum total ACH 10 in CDC table"
+      ]
+    },
+    {
+      "id": "IHFG_ISOLATION_ROOMS",
+      "title": "International Health Facility Guidelines Part D: Infection Control - Isolation Rooms",
+      "url": "https://healthfacilityguidelines.com/ViewPDF/ViewIndexPDF/iHFG_part_d_isolation_rooms",
+      "key_points": [
+        "Class N negative pressure isolation includes an anteroom",
+        "Anteroom supports transfer, pressure buffering, PPE donning/removal, and handwashing",
+        "Negative pressure rooms should be located near the inpatient unit entry where possible",
+        "Ensuite entry should not be located within the anteroom"
+      ]
+    }
+  ],
+  "module_set_strategy": {
+    "principle": "좁은 병동 건물용 최소 필수 모듈만 우선 배치한다. PPE 착탈의와 hand hygiene는 1차 버전에서 전실 기능에 통합한다.",
+    "core_modules": [
+      "negative_pressure_patient_room",
+      "anteroom",
+      "ensuite_toilet_shower",
+      "controlled_corridor",
+      "nurse_station",
+      "clean_supply_alcove",
+      "soiled_waste_holding"
+    ],
+    "deferred_optional_modules": [
+      "staff_lounge",
+      "large_equipment_room",
+      "robot_station",
+      "separate_donning_room",
+      "separate_doffing_room",
+      "medication_room",
+      "public_waiting"
+    ]
+  },
+  "modules": [
+    {
+      "id": "negative_pressure_patient_room",
+      "name_ko": "음압격리병실(일반입원 1인 기준)",
+      "category": "ward_core",
+      "infection_zone": "negative_patient_zone",
+      "min_area_m2": 10.0,
+      "area_excludes": [
+        "anteroom",
+        "ensuite_toilet_shower"
+      ],
+      "legal_basis": [
+        "KR_MOHW_2024_NEG_PRESSURE"
+      ],
+      "source_quote_summary": "일반입원실은 병상 1개당 10㎡ 이상, 화장실(샤워실) 및 전실 면적은 불포함.",
+      "pressure_requirement": "negative; patient room negative relative to anteroom, pressure differential >= -2.5Pa per Korean standard",
+      "ventilation_requirement": "Korean standard: patient room and anteroom >= 6 ACH; CDC new construction AIIR table references 12 total ACH",
+      "requires_corridor_access": false,
+      "requires_anteroom": true,
+      "requires_ensuite": true,
+      "adjacency_required": [
+        "anteroom",
+        "ensuite_toilet_shower"
+      ],
+      "adjacency_preferred": [
+        "controlled_corridor",
+        "nurse_station",
+        "soiled_waste_holding"
+      ],
+      "adjacency_forbidden": [
+        "public_waiting",
+        "clean_supply_alcove_direct_without_buffer"
+      ],
+      "grid_size_options": [
+        [
+          3,
+          3
+        ],
+        [
+          4,
+          3
+        ]
+      ],
+      "grid_note": "3x3 cells at 1.5m = 20.25㎡, conservatively above 10㎡ because a usable bedroom needs bed clearance; not a legal dimension claim.",
+      "confidence": "high_area_medium_layout",
+      "planning_area_m2": 20.25,
+      "shape_policy": {
+        "shape_type": "rectangular",
+        "preferred_grid_sizes": [
+          [
+            3,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        "aspect_ratio_preferred_max": 1.4,
+        "aspect_ratio_hard_max": 1.6,
+        "minimum_clear_dimension_m": 4.0,
+        "shape_basis": "iHFG negative-pressure isolation room examples are near-square; bed clearances and clinical work zones make long narrow rooms unsuitable."
+      },
+      "area_status": "verified_law_minimum_10m2_plus_guideline_planning_20_25m2"
+    },
+    {
+      "id": "anteroom",
+      "name_ko": "전실 / PPE·손위생 통합 버퍼",
+      "category": "infection_control",
+      "infection_zone": "buffer_zone",
+      "min_area_m2": null,
+      "legal_basis": [
+        "KR_MOHW_2024_NEG_PRESSURE"
+      ],
+      "design_basis": [
+        "IHFG_ISOLATION_ROOMS",
+        "CDC_ENV_AIR"
+      ],
+      "source_quote_summary": "음압병실 출입구에 전실 설치, 병실-전실 출입문 동시 개폐 방지. IHFG는 전실을 PPE 착탈의, 손위생, 압력손실 방지 공간으로 설명.",
+      "pressure_requirement": "buffer between non-negative and patient room; Korean standard requires pressure differential between patient room and anteroom >= -2.5Pa",
+      "ventilation_requirement": "Korean standard: anteroom >= 6 ACH; CDC anteroom table references 10 total ACH",
+      "requires_corridor_access": true,
+      "requires_anteroom": false,
+      "adjacency_required": [
+        "negative_pressure_patient_room",
+        "controlled_corridor"
+      ],
+      "adjacency_preferred": [
+        "hand_hygiene",
+        "ppe_storage"
+      ],
+      "grid_size_options": [
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ]
+      ],
+      "grid_note": "No area found in Korean excerpt; 1x2 or 2x2 cells are planning placeholders to hold PPE/hand hygiene logic.",
+      "confidence": "high_required_low_dimension",
+      "planning_area_m2": 9.0,
+      "shape_policy": {
+        "shape_type": "rectangular",
+        "preferred_grid_sizes": [
+          [
+            2,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ],
+        "aspect_ratio_preferred_max": 1.5,
+        "aspect_ratio_hard_max": 1.8,
+        "minimum_clear_dimension_m": 2.1,
+        "shape_basis": "Anteroom supports PPE, hand hygiene, and two-door airlock function; avoid narrow strip layouts."
+      },
+      "area_status": "verified_required_but_guideline_planning_area"
+    },
+    {
+      "id": "ensuite_toilet_shower",
+      "name_ko": "병실 내부 화장실/샤워실",
+      "category": "ward_core",
+      "infection_zone": "negative_patient_zone_support",
+      "min_area_m2": null,
+      "legal_basis": [
+        "KR_MOHW_2024_NEG_PRESSURE"
+      ],
+      "design_basis": [
+        "IHFG_ISOLATION_ROOMS"
+      ],
+      "source_quote_summary": "화장실(샤워시설)은 음압병상이 있는 공간에 설치. 중환자실은 제외 가능. IHFG는 ensuite 출입문을 전실 안에 두지 않는 것을 권장.",
+      "requires_corridor_access": false,
+      "requires_anteroom": false,
+      "adjacency_required": [
+        "negative_pressure_patient_room"
+      ],
+      "adjacency_forbidden": [
+        "anteroom_as_only_access"
+      ],
+      "grid_size_options": [
+        [
+          2,
+          2
+        ]
+      ],
+      "grid_note": "Dimension placeholder. Required relationship is grounded; size needs follow-up from hospital sanitary room standards.",
+      "confidence": "high_required_low_dimension",
+      "planning_area_m2": 9.0,
+      "shape_policy": {
+        "shape_type": "rectangular",
+        "preferred_grid_sizes": [
+          [
+            2,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ],
+        "aspect_ratio_preferred_max": 1.5,
+        "aspect_ratio_hard_max": 1.8,
+        "minimum_clear_dimension_m": 2.3,
+        "allows_notch": true,
+        "shape_basis": "Ensuite/shower rooms may include notches or splayed entries but should keep usable fixture clearances."
+      },
+      "area_status": "verified_required_but_guideline_planning_area"
+    },
+    {
+      "id": "controlled_corridor",
+      "name_ko": "통제 복도 / 병동 내부 복도",
+      "category": "circulation",
+      "infection_zone": "controlled_clean_or_transition",
+      "min_width_m": null,
+      "legal_basis": [],
+      "design_basis": [
+        "CDC_ENV_AIR",
+        "IHFG_ISOLATION_ROOMS"
+      ],
+      "source_quote_summary": "AIIR은 인접공간에서 병실 방향으로 공기 흐름이 들어가야 하며, 음압실은 병동 입구 근처 배치가 권장됨.",
+      "requires_corridor_access": false,
+      "adjacency_required": [
+        "anteroom",
+        "nurse_station"
+      ],
+      "grid_size_options": [
+        [
+          2,
+          99
+        ]
+      ],
+      "grid_note": "2 cells at 1.5m = 3.0m planning corridor. Actual legal corridor width requires separate Korean building/medical facility verification.",
+      "confidence": "medium_relationship_low_dimension",
+      "planning_area_m2": null,
+      "shape_policy": {
+        "shape_type": "linear",
+        "preferred_grid_sizes": [
+          [
+            2,
+            99
+          ]
+        ],
+        "aspect_ratio_check": false,
+        "min_width_cells": 2,
+        "min_width_m": 3.0,
+        "shape_basis": "Corridors are intentionally linear; check width/connectivity rather than room aspect ratio."
+      },
+      "area_status": "linear_width_planning_value"
+    },
+    {
+      "id": "nurse_station",
+      "name_ko": "간호스테이션 / 관찰 거점",
+      "category": "ward_support",
+      "infection_zone": "controlled_clean_staff",
+      "min_area_m2": null,
+      "legal_basis": [],
+      "design_basis": [],
+      "source_quote_summary": "좁은 병동 운영상 필수로 포함하되, 면적/치수는 아직 출처 필요.",
+      "requires_corridor_access": true,
+      "adjacency_preferred": [
+        "controlled_corridor",
+        "negative_pressure_patient_room"
+      ],
+      "grid_size_options": [
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ]
+      ],
+      "grid_note": "Planning placeholder.",
+      "confidence": "required_by_operation_unverified_dimension",
+      "planning_area_m2": 13.5,
+      "shape_policy": {
+        "shape_type": "rectangular",
+        "preferred_grid_sizes": [
+          [
+            2,
+            3
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            3,
+            3
+          ]
+        ],
+        "aspect_ratio_preferred_max": 1.8,
+        "aspect_ratio_hard_max": 2.0,
+        "minimum_clear_dimension_m": 3.0,
+        "shape_basis": "Staff station may be elongated along observation/corridor edge, but should avoid overly thin strips."
+      },
+      "area_status": "planning_guideline_or_placeholder"
+    },
+    {
+      "id": "clean_supply_alcove",
+      "name_ko": "청결물품 알코브/소형 청결보관",
+      "category": "ward_support_compact",
+      "infection_zone": "clean_support",
+      "min_area_m2": null,
+      "legal_basis": [],
+      "design_basis": [],
+      "source_quote_summary": "좁은 병동용 최소 지원공간. 별도 큰 청결물품실 대신 알코브로 시작.",
+      "requires_corridor_access": true,
+      "adjacency_preferred": [
+        "nurse_station",
+        "controlled_corridor"
+      ],
+      "adjacency_forbidden": [
+        "soiled_waste_holding_direct_contact"
+      ],
+      "grid_size_options": [
+        [
+          2,
+          2
+        ]
+      ],
+      "confidence": "conceptual_unverified",
+      "planning_area_m2": 9.0,
+      "shape_policy": {
+        "shape_type": "rectangular",
+        "preferred_grid_sizes": [
+          [
+            2,
+            2
+          ],
+          [
+            2,
+            3
+          ]
+        ],
+        "aspect_ratio_preferred_max": 1.8,
+        "aspect_ratio_hard_max": 2.0,
+        "minimum_clear_dimension_m": 3.0,
+        "shape_basis": "Clean utility can be compact or alcove-like but should remain usable for carts/storage."
+      },
+      "area_status": "planning_guideline_or_placeholder"
+    },
+    {
+      "id": "soiled_waste_holding",
+      "name_ko": "오염물/폐기물 임시보관",
+      "category": "ward_support_compact",
+      "infection_zone": "dirty_support",
+      "min_area_m2": null,
+      "legal_basis": [],
+      "design_basis": [
+        "IHFG_ISOLATION_ROOMS"
+      ],
+      "source_quote_summary": "IHFG는 오염 공기/오염물 처리와 오염 동선 분리를 중요하게 다룸. 좁은 병동에서는 대형 오물처리실보다 임시보관/반출 거점을 우선 배치.",
+      "requires_corridor_access": true,
+      "adjacency_preferred": [
+        "controlled_corridor",
+        "negative_pressure_patient_room"
+      ],
+      "adjacency_forbidden": [
+        "clean_supply_alcove_direct_contact"
+      ],
+      "grid_size_options": [
+        [
+          2,
+          2
+        ]
+      ],
+      "confidence": "medium_relationship_low_dimension",
+      "planning_area_m2": 13.5,
+      "shape_policy": {
+        "shape_type": "rectangular",
+        "preferred_grid_sizes": [
+          [
+            2,
+            3
+          ],
+          [
+            2,
+            2
+          ]
+        ],
+        "aspect_ratio_preferred_max": 1.8,
+        "aspect_ratio_hard_max": 2.0,
+        "minimum_clear_dimension_m": 3.0,
+        "shape_basis": "Dirty utility/waste holding needs cart/bin handling; avoid direct contact with clean supply."
+      },
+      "area_status": "planning_guideline_or_placeholder"
+    }
+  ],
+  "general_room_standards": {
+    "source_note": "General healthcare planning standards compiled for auto-layout; not specific to the user graduation project massing.",
+    "cell_size_m": 1.5,
+    "cell_area_m2": 2.25,
+    "aspect_ratio_rule": {
+      "clinical_room_preferred_max": 1.5,
+      "clinical_room_hard_max": 1.8,
+      "support_room_preferred_max": 1.8,
+      "support_room_hard_max": 2.0,
+      "corridor_exempt": true
+    },
+    "room_types": [
+      {
+        "code": "R",
+        "name_ko": "음압격리병실 1인",
+        "legal_min_area_m2": 10.0,
+        "planning_area_m2": 20.25,
+        "preferred_ratio": "1:1~1:1.4",
+        "recommended_grid": [
+          3,
+          3
+        ],
+        "status": "verified_law + guideline_shape"
+      },
+      {
+        "code": "A",
+        "name_ko": "전실/PPE 버퍼",
+        "legal_min_area_m2": null,
+        "planning_area_m2": 9.0,
+        "preferred_ratio": "1:1~1:1.5",
+        "recommended_grid": [
+          2,
+          2
+        ],
+        "status": "verified_required + guideline_area"
+      },
+      {
+        "code": "WC",
+        "name_ko": "병실 내 화장실·샤워",
+        "legal_min_area_m2": null,
+        "planning_area_m2": 9.0,
+        "preferred_ratio": "1:1~1:1.5",
+        "recommended_grid": [
+          2,
+          2
+        ],
+        "status": "verified_required + guideline_area"
+      },
+      {
+        "code": "C",
+        "name_ko": "통제 복도",
+        "legal_min_area_m2": null,
+        "planning_area_m2": null,
+        "preferred_ratio": "linear; width first",
+        "recommended_grid": [
+          2,
+          99
+        ],
+        "status": "planning_width"
+      },
+      {
+        "code": "N",
+        "name_ko": "간호스테이션",
+        "legal_min_area_m2": null,
+        "planning_area_m2": 13.5,
+        "preferred_ratio": "1:1~1:1.8",
+        "recommended_grid": [
+          2,
+          3
+        ],
+        "status": "guideline"
+      },
+      {
+        "code": "CL",
+        "name_ko": "청결물품/청결유틸리티",
+        "legal_min_area_m2": null,
+        "planning_area_m2": 9.0,
+        "preferred_ratio": "1:1~1:1.8",
+        "recommended_grid": [
+          2,
+          2
+        ],
+        "status": "guideline"
+      },
+      {
+        "code": "D",
+        "name_ko": "오염물/폐기물/Dirty Utility",
+        "legal_min_area_m2": null,
+        "planning_area_m2": 13.5,
+        "preferred_ratio": "1:1~1:1.8",
+        "recommended_grid": [
+          2,
+          3
+        ],
+        "status": "guideline"
+      },
+      {
+        "code": "TRI",
+        "name_ko": "선별/트리아지",
+        "legal_min_area_m2": null,
+        "planning_area_m2": 13.5,
+        "preferred_ratio": "1:1~1:1.5",
+        "recommended_grid": [
+          2,
+          3
+        ],
+        "status": "guideline_general"
+      },
+      {
+        "code": "EX",
+        "name_ko": "진찰/검사실",
+        "legal_min_area_m2": null,
+        "planning_area_m2": 20.25,
+        "preferred_ratio": "1:1~1:1.4",
+        "recommended_grid": [
+          3,
+          3
+        ],
+        "status": "guideline_general"
+      },
+      {
+        "code": "DIA",
+        "name_ko": "투석 베이",
+        "legal_min_area_m2": null,
+        "planning_area_m2": 13.5,
+        "preferred_ratio": "1:1~1:1.5",
+        "recommended_grid": [
+          2,
+          3
+        ],
+        "status": "guideline_general"
+      },
+      {
+        "code": "PROC",
+        "name_ko": "시술/처치실",
+        "legal_min_area_m2": null,
+        "planning_area_m2": 20.25,
+        "preferred_ratio": "1:1~1:1.4",
+        "recommended_grid": [
+          3,
+          3
+        ],
+        "status": "guideline_general"
+      },
+      {
+        "code": "MINOR_OR",
+        "name_ko": "소수술실",
+        "legal_min_area_m2": null,
+        "planning_area_m2": 36.0,
+        "preferred_ratio": "1:1~1:1.4",
+        "recommended_grid": [
+          4,
+          4
+        ],
+        "status": "guideline_general"
+      }
+    ]
+  }
+}

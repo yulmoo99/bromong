@@ -1,0 +1,148 @@
+{
+  "grid_assumption": {
+    "default_cell_size_m": 1.5,
+    "note": "초기값. 실제 모듈 치수는 리서치 후 보정."
+  },
+  "modules": [
+    {
+      "id": "negative_pressure_patient_room",
+      "name_ko": "음압격리병실",
+      "department": "ward",
+      "infection_zone": "contaminated_controlled",
+      "grid_size_options": [
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          5
+        ]
+      ],
+      "requires_corridor_access": true,
+      "corridor_type": "dirty_or_controlled",
+      "requires_anteroom": true,
+      "adjacency_required": [
+        "anteroom"
+      ],
+      "adjacency_preferred": [
+        "nurse_station",
+        "dirty_utility"
+      ],
+      "confidence": "unverified",
+      "notes": "면적/전실 기준 리서치 필요"
+    },
+    {
+      "id": "anteroom",
+      "name_ko": "전실",
+      "department": "infection_control",
+      "infection_zone": "buffer",
+      "grid_size_options": [
+        [
+          2,
+          2
+        ],
+        [
+          2,
+          3
+        ]
+      ],
+      "requires_corridor_access": true,
+      "corridor_type": "clean_or_dirty_transition",
+      "requires_anteroom": false,
+      "adjacency_required": [],
+      "confidence": "unverified",
+      "notes": "청결-오염 전환 버퍼"
+    },
+    {
+      "id": "nurse_station",
+      "name_ko": "간호스테이션",
+      "department": "ward",
+      "infection_zone": "clean_controlled",
+      "grid_size_options": [
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ]
+      ],
+      "requires_corridor_access": true,
+      "corridor_type": "clean",
+      "requires_anteroom": false,
+      "adjacency_preferred": [
+        "negative_pressure_patient_room"
+      ],
+      "confidence": "unverified"
+    },
+    {
+      "id": "negative_pressure_or",
+      "name_ko": "음압수술실",
+      "department": "surgery",
+      "infection_zone": "contaminated_controlled",
+      "grid_size_options": [
+        [
+          6,
+          6
+        ],
+        [
+          7,
+          6
+        ]
+      ],
+      "requires_corridor_access": true,
+      "corridor_type": "clean_and_dirty_separated",
+      "requires_anteroom": true,
+      "adjacency_required": [
+        "surgical_prep",
+        "recovery_room"
+      ],
+      "adjacency_preferred": [
+        "dirty_utility",
+        "sterile_supply"
+      ],
+      "confidence": "unverified",
+      "notes": "음압수술실의 멸균 진입/전실/청결복도 조건 별도 리서치 필요"
+    },
+    {
+      "id": "clean_corridor",
+      "name_ko": "청결 복도",
+      "department": "circulation",
+      "infection_zone": "clean",
+      "grid_size_options": [
+        [
+          1,
+          8
+        ],
+        [
+          2,
+          8
+        ]
+      ],
+      "requires_corridor_access": false,
+      "corridor_type": "clean",
+      "confidence": "conceptual"
+    },
+    {
+      "id": "dirty_corridor",
+      "name_ko": "오염 복도",
+      "department": "circulation",
+      "infection_zone": "contaminated",
+      "grid_size_options": [
+        [
+          1,
+          8
+        ],
+        [
+          2,
+          8
+        ]
+      ],
+      "requires_corridor_access": false,
+      "corridor_type": "dirty",
+      "confidence": "conceptual"
+    }
+  ]
+}

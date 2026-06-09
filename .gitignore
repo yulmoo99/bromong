@@ -1,0 +1,29 @@
+# Python / local environments
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node/local generated dependencies
+node_modules/
+
+# Streamlit local state
+.streamlit/secrets.toml
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Hermes/session/project-local working state
+.hermes/
+
+# Generated exports and temporary outputs
+exports/
+outputs/
+*.zip
+*.log

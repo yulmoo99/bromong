@@ -1756,17 +1756,24 @@ function drawFurnitureLabel(item, scale, offsetX, offsetY, text = item.label) {
   threeDCtx.restore();
 }
 function drawPatientBed(item, scale, offsetX, offsetY) {
-  // Low 3D bed: rounded mattress cap + pillow + side rail. Avoid the “just another cuboid” look.
   drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  drawFurnitureVolume(item, scale, offsetX, offsetY, '#e0e7ff', 0.78);
-  drawRoundedProjectedTop(item, scale, offsetX, offsetY, 'rgba(248,250,252,0.98)', 'rgba(71,85,105,0.62)', 1.05, 0.055);
-  const pillow = childFurniture(item, {x:0.14, y:0.07, w:0.72, d:0.20}, {h:0.045, color:'#dbeafe'});
-  drawFurnitureVolume(pillow, scale, offsetX, offsetY, '#dbeafe', 0.38);
-  drawIsoEllipseCap(pillow, scale, offsetX, offsetY, '#eff6ff', 'rgba(37,99,235,0.46)', 0.38, 0.018, 0.92, 0.56);
-  const railLeft = childFurniture(item, {x:0.05, y:0.30, w:0.05, d:0.52}, {h:0.07, color:'#cbd5e1'});
-  const railRight = childFurniture(item, {x:0.90, y:0.30, w:0.05, d:0.52}, {h:0.07, color:'#cbd5e1'});
-  drawFurnitureVolume(railLeft, scale, offsetX, offsetY, '#cbd5e1', 0.72);
-  drawFurnitureVolume(railRight, scale, offsetX, offsetY, '#cbd5e1', 0.72);
+  // 프레임
+  drawFurnitureVolume(item, scale, offsetX, offsetY, '#64748b', 0.55);
+  // 매트리스
+  const mattress = childFurniture(item, {x:0.06, y:0.06, w:0.88, d:0.80}, {h:0.12, color:'#e0f2fe'});
+  drawFurnitureVolume(mattress, scale, offsetX, offsetY, '#e0f2fe', 1.10);
+  drawFurnitureTopDetail(mattress, scale, offsetX, offsetY, 0.06, 'rgba(255,255,255,0.7)', 'rgba(51,65,85,0.3)');
+  // 베개 (머리쪽 = y 큰 방향)
+  const pillow = childFurniture(item, {x:0.16, y:0.72, w:0.68, d:0.16}, {h:0.06, color:'#ffffff'});
+  drawFurnitureVolume(pillow, scale, offsetX, offsetY, '#ffffff', 0.80);
+  // 헤드보드
+  const hb = childFurniture(item, {x:0.03, y:0.90, w:0.94, d:0.06}, {h:0.22, color:'#334155'});
+  drawFurnitureVolume(hb, scale, offsetX, offsetY, '#334155', 1.20);
+  // 사이드레일
+  const railL = childFurniture(item, {x:0.02, y:0.12, w:0.04, d:0.62}, {h:0.08, color:'#94a3b8'});
+  const railR = childFurniture(item, {x:0.94, y:0.12, w:0.04, d:0.62}, {h:0.08, color:'#94a3b8'});
+  drawFurnitureVolume(railL, scale, offsetX, offsetY, '#94a3b8', 0.75);
+  drawFurnitureVolume(railR, scale, offsetX, offsetY, '#94a3b8', 0.75);
 }
 function drawHeadwall(item, scale, offsetX, offsetY) {
   drawFurnitureContactShadow(item, scale, offsetX, offsetY);
@@ -1774,28 +1781,42 @@ function drawHeadwall(item, scale, offsetX, offsetY) {
   drawFurnitureEdgeLine(item, scale, offsetX, offsetY, 0.10, 0.018, 'rgba(37,99,235,0.56)');
 }
 function drawToiletFixture(item, scale, offsetX, offsetY) {
-  // Sanitary fixture reads as a small raised fixture: plinth + rounded bowl + cistern, not a cuboid.
   drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  const plinth = childFurniture(item, {x:0.10, y:0.16, w:0.80, d:0.70}, {h:0.055, color:'#e0f2fe'});
-  const bowl = childFurniture(item, {x:0.20, y:0.28, w:0.60, d:0.46}, {h:0.105, color:'#f8fafc'});
-  const tank = childFurniture(item, {x:0.16, y:0.06, w:0.68, d:0.18}, {h:0.12, color:'#e2e8f0'});
-  drawFurnitureVolume(plinth, scale, offsetX, offsetY, '#e0f2fe', 0.40);
-  drawCylinderFixture(bowl, scale, offsetX, offsetY, '#f8fafc', 'rgba(2,132,199,0.58)', 0.92, 0.72, 0.70);
-  drawIsoEllipseCap(bowl, scale, offsetX, offsetY, 'rgba(186,230,253,0.82)', 'rgba(2,132,199,0.52)', 0.55, 0.035, 0.42, 0.32);
-  drawFurnitureVolume(tank, scale, offsetX, offsetY, '#e2e8f0', 0.82);
+  // 변기 본체
+  const bowl = childFurniture(item, {x:0.10, y:0.22, w:0.80, d:0.70}, {h:0.12, color:'#ffffff'});
+  drawFurnitureVolume(bowl, scale, offsetX, offsetY, '#ffffff', 1.0);
+  drawFurnitureTopDetail(bowl, scale, offsetX, offsetY, 0.12, '#bae6fd', 'rgba(2,132,199,0.5)');
+  // 시트 테두리
+  const rim = childFurniture(item, {x:0.12, y:0.24, w:0.76, d:0.66}, {h:0.02, color:'#0f172a'});
+  drawFurnitureVolume(rim, scale, offsetX, offsetY, '#0f172a', 0.30);
+  // 물탱크
+  const tank = childFurniture(item, {x:0.14, y:0.02, w:0.72, d:0.20}, {h:0.18, color:'#e2e8f0'});
+  drawFurnitureVolume(tank, scale, offsetX, offsetY, '#e2e8f0', 1.0);
 }
 function drawShowerZone(item, scale, offsetX, offsetY) {
   drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  drawFurnitureVolume(item, scale, offsetX, offsetY, '#bfdbfe', 0.25);
-  drawRoundedProjectedTop(item, scale, offsetX, offsetY, 'rgba(224,242,254,0.72)', 'rgba(2,132,199,0.50)', 0.22, 0.10);
-  drawIsoEllipseCap(childFurniture(item, {x:0.40, y:0.40, w:0.20, d:0.20}, {h:0.025, color:'#38bdf8'}), scale, offsetX, offsetY, 'rgba(14,116,144,0.58)', 'rgba(14,116,144,0.55)', 0.20, 0.01, 0.70, 0.70);
-  drawFurnitureEdgeLine(item, scale, offsetX, offsetY, 0.12, 0.012, 'rgba(2,132,199,0.58)');
+  // 트레이 바닥
+  drawFurnitureVolume(item, scale, offsetX, offsetY, '#bfdbfe', 0.22);
+  drawFurnitureTopDetail(item, scale, offsetX, offsetY, 0.08, 'rgba(224,242,254,0.80)', 'rgba(2,132,199,0.45)');
+  // 앞면 스크린
+  const screen = childFurniture(item, {x:0.02, y:0.0, w:0.96, d:0.05}, {h:0.22, color:'#93c5fd'});
+  drawFurnitureVolume(screen, scale, offsetX, offsetY, '#93c5fd', 1.0);
+  // 샤워 헤드 폴
+  const pole = childFurniture(item, {x:0.80, y:0.12, w:0.06, d:0.06}, {h:0.46, color:'#2563eb'});
+  drawFurnitureVolume(pole, scale, offsetX, offsetY, '#2563eb', 1.0);
 }
 function drawWashbasin(item, scale, offsetX, offsetY) {
   drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  drawFurnitureVolume(item, scale, offsetX, offsetY, '#dbeafe', 0.46);
-  drawIsoEllipseCap(item, scale, offsetX, offsetY, 'rgba(240,249,255,0.96)', 'rgba(14,116,144,0.58)', 0.74, 0.018, 0.82, 0.52);
-  drawIsoEllipseCap(item, scale, offsetX, offsetY, 'rgba(186,230,253,0.72)', 'rgba(14,116,144,0.42)', 0.42, 0.032, 0.46, 0.30);
+  // 브래킷
+  const bracket = childFurniture(item, {x:0.06, y:0.02, w:0.88, d:0.14}, {h:0.14, color:'#94a3b8'});
+  drawFurnitureVolume(bracket, scale, offsetX, offsetY, '#94a3b8', 0.85);
+  // 세면대 본체
+  const basin = childFurniture(item, {x:0.06, y:0.18, w:0.88, d:0.72}, {h:0.10, color:'#e0f2fe'});
+  drawFurnitureVolume(basin, scale, offsetX, offsetY, '#e0f2fe', 1.0);
+  drawFurnitureTopDetail(basin, scale, offsetX, offsetY, 0.14, '#bae6fd', 'rgba(14,116,144,0.5)');
+  // 수전
+  const faucet = childFurniture(item, {x:0.44, y:0.20, w:0.12, d:0.10}, {h:0.16, color:'#334155'});
+  drawFurnitureVolume(faucet, scale, offsetX, offsetY, '#334155', 1.0);
 }
 function drawBench(item, scale, offsetX, offsetY) {
   drawFurnitureContactShadow(item, scale, offsetX, offsetY);

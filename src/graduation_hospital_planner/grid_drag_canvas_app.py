@@ -2113,14 +2113,27 @@ function addWardFloorsAndWalls3D(masses) {
   if (b) addBox3D(threeRoot, b.minC, b.minR, b.maxC - b.minC + 1, b.maxR - b.minR + 1, 0.025, '#e5e7eb', -0.035, 'shared floor slab');
   for (const mass of masses) {
     addBox3D(threeRoot, mass.x, mass.y, mass.w, mass.d, THREE_ROOM_HEIGHT, shadeHex(mass.color, mass.value === moduleCodes.controlled_corridor ? 0.98 : 1.04), 0, 'room floor plate');
-    if (mass.value !== moduleCodes.controlled_corridor) {
-      const t = Math.min(0.075, Math.max(0.045, Math.min(mass.w, mass.d) * 0.055));
-      addBox3D(threeRoot, mass.x, mass.y, mass.w, t, THREE_WALL_HEIGHT, '#f8fafc', THREE_ROOM_HEIGHT, 'cutaway wall');
-      addBox3D(threeRoot, mass.x, mass.y + mass.d - t, mass.w, t, THREE_WALL_HEIGHT, '#cbd5e1', THREE_ROOM_HEIGHT, 'cutaway wall');
-      addBox3D(threeRoot, mass.x, mass.y, t, mass.d, THREE_WALL_HEIGHT, '#f1f5f9', THREE_ROOM_HEIGHT, 'cutaway wall');
-      addBox3D(threeRoot, mass.x + mass.w - t, mass.y, t, mass.d, THREE_WALL_HEIGHT, '#cbd5e1', THREE_ROOM_HEIGHT, 'cutaway wall');
-    }
     // No in-scene text labels: the 3D viewer must communicate by room color, massing, and furniture/equipment shape.
+  }
+  // 2D 구분선이 있는 경계(인접 셀 타입이 다른 곳)에만 벽 생성
+  const t = 0.055;
+  // 수직 경계: (r, c)와 (r, c+1) 사이
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols - 1; c++) {
+      const left = grid[r][c], right = grid[r][c + 1];
+      if (left === right) continue;
+      if (left === 0 && right === 0) continue;
+      addBox3D(threeRoot, c + 1 - t / 2, r, t, 1, THREE_WALL_HEIGHT, '#cbd5e1', THREE_ROOM_HEIGHT, 'boundary wall');
+    }
+  }
+  // 수평 경계: (r, c)와 (r+1, c) 사이
+  for (let r = 0; r < rows - 1; r++) {
+    for (let c = 0; c < cols; c++) {
+      const top = grid[r][c], bottom = grid[r + 1][c];
+      if (top === bottom) continue;
+      if (top === 0 && bottom === 0) continue;
+      addBox3D(threeRoot, c, r + 1 - t / 2, 1, t, THREE_WALL_HEIGHT, '#f1f5f9', THREE_ROOM_HEIGHT, 'boundary wall');
+    }
   }
 }
 function addPrimitiveFurnitureItem3D(item) {

@@ -314,9 +314,10 @@ const FURNITURE_LIBRARY = {
   // 치수 근거: 병상 0.9m×2.1m, 전실 3m×3m(2×2셀), 병실 6m×4.5m(4×3셀) 기준.
   patient_room: [
     // 문: y≈0 (전실 접속 면). 헤드월은 맞은편 벽(y≈0.80)에, 병상 발치가 진입 방향.
-    {type:'headwall',      label:'headwall', x:0.30, y:0.80, w:0.22, d:0.05, h:0.10, color:'#dbeafe'},
-    {type:'patient_bed',   label:'bed',      x:0.30, y:0.26, w:0.18, d:0.50, h:0.16, color:'#f8fafc'},
-    {type:'bedside_table', label:'side',     x:0.52, y:0.40, w:0.10, d:0.14, h:0.11, color:'#c4b5fd'},
+    // 병상(w:0.22, d:0.54) 머리를 headwall(y:0.80)에 붙임: 병상 y+d = 0.26+0.54 = 0.80
+    {type:'headwall',      label:'headwall', x:0.32, y:0.80, w:0.30, d:0.05, h:0.10, color:'#dbeafe'},
+    {type:'patient_bed',   label:'bed',      x:0.36, y:0.26, w:0.22, d:0.54, h:0.16, color:'#f8fafc'},
+    {type:'bedside_table', label:'side',     x:0.62, y:0.44, w:0.10, d:0.14, h:0.11, color:'#c4b5fd'},
     {type:'medical_cart',  label:'cart',     x:0.74, y:0.24, w:0.13, d:0.15, h:0.12, color:'#bfdbfe'},
   ],
   anteroom: [

@@ -40,6 +40,8 @@ def test_no_stale_1_5m_grid_wording_in_tracked_text_files():
     offenders = []
     for rel in tracked:
         path = ROOT / rel
+        if rel == "tests/test_hospital_area_summary_accuracy.py":
+            continue
         if path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".glb", ".pdf"}:
             continue
         try:

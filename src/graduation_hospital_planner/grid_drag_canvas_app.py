@@ -1504,6 +1504,51 @@ const HOSPITAL_DEPARTMENT = {
   clinical_research_lab:'adm', data_analysis_room:'adm', meeting_room:'adm', administration:'adm'
 };
 const HOSPITAL_DEPARTMENT_ORDER = ['surg','acute','exam','img','inf','obs','adm'];
+const HOSPITAL_DEPARTMENT_ORDERS = [
+  ['surg','acute','img','exam','inf','obs','adm'],
+  ['acute','img','exam','surg','inf','obs','adm'],
+  ['img','acute','exam','surg','inf','obs','adm'],
+  ['exam','img','acute','inf','surg','obs','adm'],
+  ['obs','surg','acute','img','exam','inf','adm'],
+  ['adm','exam','img','acute','surg','inf','obs']
+];
+const HOSPITAL_ADJACENCY_RULES = [
+  // source: USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018 — 수술부는 수술 전후 환자·의료진·물류 흐름, 청결/비청결 동선 분리, 회복실·중앙공급 연계를 우선한다.
+  ['operating_room','recovery_room',100,'수술실-회복실 직접 연계'],
+  ['operating_room','surgery_support',100,'수술실-수술지원 core'],
+  ['operating_room','central_supply',70,'수술실-중앙공급 청결물품 동선'],
+  ['surgery_support','central_supply',70,'수술지원-멸균물품'],
+  ['surgery_support','recovery_room',35,'수술지원-회복실'],
+  // guideline + 보조 운영 규칙: 응급/관찰은 같은 급성 진료 흐름, 응급은 CT/X-ray 접근성이 높아야 한다.
+  ['emergency_care','observation_4bed',100,'응급-관찰'],
+  ['emergency_care','treatment_room',70,'응급-처치'],
+  ['emergency_care','ct_suite',70,'응급-CT'],
+  ['emergency_care','xray_room',70,'응급-X-ray'],
+  ['observation_4bed','treatment_room',70,'관찰-처치'],
+  ['observation_4bed','ct_suite',35,'관찰-CT'],
+  ['observation_4bed','xray_room',35,'관찰-X-ray'],
+  // diagnostic cluster: 영상/검체/진단검사/병리 기능을 같은 support zone으로 묶는다.
+  ['ct_suite','xray_room',100,'영상검사 cluster'],
+  ['specimen_collection','diagnostic_lab',70,'검체-진단검사'],
+  ['diagnostic_lab','pathology_lab',70,'진단검사-병리'],
+  ['specimen_collection','pathology_lab',35,'검체-병리'],
+  ['ct_suite','diagnostic_lab',20,'영상-진단검사 보조'],
+  ['xray_room','diagnostic_lab',20,'X-ray-진단검사 보조'],
+  // outpatient / treatment / infusion cluster.
+  ['consult_room','treatment_room',70,'외래-처치'],
+  ['consult_room','specimen_collection',35,'외래-검체'],
+  ['consult_room','infusion_6bed',35,'외래-수액'],
+  ['treatment_room','infusion_6bed',70,'처치-수액'],
+  // dialysis, obstetric/newborn, admin/research support.
+  ['dialysis_4bed','dialysis_8bed',100,'투석 cluster'],
+  ['dialysis_4bed','treatment_room',35,'투석-처치'],
+  ['dialysis_8bed','treatment_room',35,'투석-처치'],
+  ['delivery_room','newborn_treatment',100,'분만-신생아'],
+  ['delivery_room','operating_room',35,'분만-수술 보조'],
+  ['clinical_research_lab','data_analysis_room',70,'연구-데이터'],
+  ['clinical_research_lab','meeting_room',35,'연구-회의'],
+  ['administration','meeting_room',70,'행정-회의']
+];
 function normalizedModuleWH(program) {
   // 모듈 깊이를 밴드(4칸)에 맞추도록 회전 방향을 정한다.
   const a = hospitalProgramRectFor(program, false);
@@ -1544,7 +1589,8 @@ function buildDepartmentBlocks(requests, strategyIndex) {
   const instances = expandHospitalProgramRequests(requests);
   const byDept = {};
   for (const inst of instances) { const d = HOSPITAL_DEPARTMENT[inst.program.id] || 'adm'; (byDept[d] = byDept[d] || []).push(inst); }
-  const order = strategyIndex === 1 ? HOSPITAL_DEPARTMENT_ORDER.slice().reverse() : HOSPITAL_DEPARTMENT_ORDER;
+  const orders = HOSPITAL_DEPARTMENT_ORDERS;
+  const order = orders[strategyIndex % orders.length] || HOSPITAL_DEPARTMENT_ORDER;
   const blocks = [];
   for (const d of order) {
     const list = byDept[d]; if (!list || !list.length) continue;
@@ -1554,8 +1600,9 @@ function buildDepartmentBlocks(requests, strategyIndex) {
     const H = blockRows.length * HOSPITAL_BAND_DEPTH_CELLS + (blockRows.length - 1); // 줄 사이 복도 포함
     blocks.push({W, H, rows: blockRows, dept: d});
   }
-  // 큰 덩어리 먼저 놓으면 2D 패킹이 촘촘해진다 (전략2는 면적 기준).
-  blocks.sort((a, b) => strategyIndex === 2 ? (b.W * b.H - a.W * a.H) : (b.H - a.H));
+  // 전략별로 정렬 압력을 달리해 후보 배치의 zoning 방향을 바꾼다.
+  if (strategyIndex === 2) blocks.sort((a, b) => b.W * b.H - a.W * a.H);
+  else if (strategyIndex === 0 || strategyIndex === 1) blocks.sort((a, b) => b.H - a.H);
   return blocks;
 }
 function placeDepartmentBlockAt(blk, r0, c0) {
@@ -1580,12 +1627,12 @@ function globalFirstFitBlock(blk, b) {
       if (canPlaceModule(r, c, blk.H, blk.W)) return {r, c};
   return null;
 }
-function packDepartmentBlocksDistributed(blocks) {
+function packDepartmentBlocksDistributed(blocks, strategyIndex=0) {
   // 부서 덩어리를 칠한 영역 전체에 '고르게 분산'한다: 영역을 cols×rowsN 격자 칸으로 나눠 각 칸 중앙에 덩어리를 놓고,
   // 자리가 막히면 주변을 탐색해 유동적으로 들어간다. 빈 공간은 복도가 되어 부서들을 나눈다. → 아래쪽까지 채워진다.
   const b = usableBounds(); if (!b) return 0;
   const W = b.maxC - b.minC + 1, H = b.maxR - b.minR + 1;
-  const sorted = blocks.slice().sort((a, c) => c.H - a.H); // 큰 덩어리부터 자리 잡기
+  const sorted = strategyIndex % 3 === 2 ? blocks.slice() : blocks.slice().sort((a, c) => strategyIndex % 3 === 1 ? (c.W - a.W) : (c.H - a.H)); // 후보별로 정렬 방식 변경
   const N = sorted.length;
   const cols = Math.max(1, Math.round(Math.sqrt(N * W / Math.max(1, H))));
   const rowsN = Math.max(1, Math.ceil(N / cols));
@@ -1594,7 +1641,10 @@ function packDepartmentBlocksDistributed(blocks) {
   let placed = 0;
   sorted.forEach((blk, i) => {
     if (blk.W > W || blk.H > H) return; // 영역보다 큰 덩어리는 배치 불가
-    const gc = i % cols, gr = Math.floor(i / cols);
+    let gc = i % cols, gr = Math.floor(i / cols);
+    if (strategyIndex === 1 || strategyIndex === 5) gc = cols - 1 - gc;
+    if (strategyIndex === 3) gr = rowsN - 1 - gr;
+    if (strategyIndex === 4 && gr % 2 === 1) gc = cols - 1 - gc;
     const cx = b.minC + gc * cellW + cellW / 2, cy = b.minR + gr * cellH + cellH / 2;
     const tr = Math.round(cy - blk.H / 2), tc = Math.round(cx - blk.W / 2);
     const pos = searchDepartmentBlockFit(blk, tr, tc, rad) || globalFirstFitBlock(blk, b);
@@ -1616,7 +1666,7 @@ function markHospitalDepartmentCorridorNetwork(strategyIndex, corridorCells) {
 function placeSelectedHospitalPrograms(requests, corridorCells, strategyIndex=0) {
   const placedProgramInstances = expandHospitalProgramRequests(requests); // (배치 인스턴스 목록)
   const blocks = buildDepartmentBlocks(requests, strategyIndex);
-  const placed = packDepartmentBlocksDistributed(blocks);
+  const placed = packDepartmentBlocksDistributed(blocks, strategyIndex);
   markHospitalDepartmentCorridorNetwork(strategyIndex, corridorCells); // 빈 공간 → 복도(부서 사이/줄 사이 포함)
   void placedProgramInstances.length;
   return placed;
@@ -1702,11 +1752,49 @@ function hospitalRequiredFootprint(requests) {
   const regionW = maxRight + 2, regionH = y + shelfH + 2;
   return {cells: regionW * regionH, w: regionW, h: regionH};
 }
+function hospitalProgramCentroids(candidateGrid) {
+  const acc = {};
+  HOSPITAL_PROGRAMS.forEach(p => { acc[p.id] = {r:0, c:0, n:0}; });
+  for (let r = 0; r < candidateGrid.length; r++) {
+    for (let c = 0; c < candidateGrid[r].length; c++) {
+      const id = codeToModule[String(candidateGrid[r][c])];
+      if (!id || !acc[id]) continue;
+      acc[id].r += r; acc[id].c += c; acc[id].n += 1;
+    }
+  }
+  const out = {};
+  Object.entries(acc).forEach(([id, a]) => { if (a.n > 0) out[id] = {r: a.r / a.n, c: a.c / a.n, cells: a.n}; });
+  return out;
+}
+function scoreHospitalAdjacency(candidateGrid) {
+  const centers = hospitalProgramCentroids(candidateGrid);
+  const maxDist = Math.max(1, rows + cols);
+  let score = 0;
+  let matched = 0;
+  const highlights = [];
+  for (const [a, b, weight, reason] of HOSPITAL_ADJACENCY_RULES) {
+    if (!centers[a] || !centers[b]) continue;
+    const d = Math.abs(centers[a].r - centers[b].r) + Math.abs(centers[a].c - centers[b].c);
+    const closeness = Math.max(0, 1 - d / maxDist);
+    score += weight * closeness;
+    matched += 1;
+    if (weight >= 70) highlights.push(reason + ' ' + d.toFixed(0) + '칸');
+  }
+  return {score, matched, summary: highlights.slice(0, 4).join(' · ')};
+}
+function chooseBestHospitalLayoutCandidate(candidates) {
+  if (!candidates.length) return null;
+  return candidates.slice().sort((a, b) =>
+    (b.placedPrograms - a.placedPrograms) ||
+    (b.adjacencyScore - a.adjacencyScore) ||
+    ((b.score && b.score.score) || 0) - ((a.score && a.score.score) || 0)
+  )[0];
+}
 function generateHospitalLayoutOptions(programRequests) {
   const base = cloneGrid(grid);
   layoutOptions = [];
-  let lastPlaced = 0;
-  for (let strategy=0; strategy<1; strategy++) { // 단일 배치안 (3가지 비교 제거)
+  const candidates = [];
+  for (let strategy=0; strategy<6; strategy++) { // 내부 후보 6개 생성 → 인접성 점수로 최고안 1개만 노출
     grid = cloneGrid(base);
     if (!gridHasUsableArea()) fillGrid();
     resetModulesToUsableArea();
@@ -1716,13 +1804,22 @@ function generateHospitalLayoutOptions(programRequests) {
     ensureAllCorridorsConnected(corridorCells);
     fillRemainingEdgeCells(corridorCells);
     const score = layoutUtilizationScore();
-    layoutOptions.push({grid: cloneGrid(grid), clusterGrid: cloneGrid(clusterGrid), moduleIdGrid: cloneGrid(moduleIdGrid), score, placedSuites: 0, placedPrograms, corridorStrategy: 'hospital_program:department_cluster'});
-    lastPlaced = placedPrograms;
+    const adjacency = scoreHospitalAdjacency(grid);
+    // 기존 hospital_program:department_cluster 방식은 유지하되, 내부 후보를 hospital_program:adjacency_scored 로 재점수화한다.
+    candidates.push({grid: cloneGrid(grid), clusterGrid: cloneGrid(clusterGrid), moduleIdGrid: cloneGrid(moduleIdGrid), score, placedSuites: 0, placedPrograms, adjacencyScore: adjacency.score, adjacencySummary: adjacency.summary, adjacencyMatched: adjacency.matched, corridorStrategy: 'hospital_program:adjacency_scored'});
   }
+  const best = chooseBestHospitalLayoutCandidate(candidates);
+  if (!best) {
+    layoutOptions = [];
+    optionPanel.innerHTML = '<b>배치 실패</b> · 선택 모듈을 배치할 수 없습니다. 영역을 더 넓히거나 체크리스트 수량을 줄여주세요.';
+    return;
+  }
+  layoutOptions = [best];
   selectLayoutOption(0);
   const requested = expandHospitalProgramRequests(programRequests).length;
-  const shortfall = requested - lastPlaced;
-  optionPanel.innerHTML = '<b>배치 완료</b> · 배치 모듈 <b>' + lastPlaced + '개</b>' + (shortfall > 0 ? ' <span style="color:#b91c1c;">(공간 부족으로 ' + shortfall + '개 미배치 — 영역을 더 그리거나 면적 요약의 필요 면적을 확인하세요)</span>' : '') + '. 부서별로 묶어 복도로 분리했습니다.';
+  const shortfall = requested - best.placedPrograms;
+  const adjacencyText = best.adjacencySummary ? ' · ' + best.adjacencySummary : '';
+  optionPanel.innerHTML = '<b>배치 완료</b> · 배치 모듈 <b>' + best.placedPrograms + '개</b>' + (shortfall > 0 ? ' <span style="color:#b91c1c;">(공간 부족으로 ' + shortfall + '개 미배치 — 영역을 더 그리거나 면적 요약의 필요 면적을 확인하세요)</span>' : '') + '.<br/><span class="small">배치 논리: 수술 cluster / 응급-영상 cluster / 검사 cluster 우선 · 인접성 점수 ' + best.adjacencyScore.toFixed(1) + adjacencyText + '</span>';
 }
 
 function compareLayoutOptions() {

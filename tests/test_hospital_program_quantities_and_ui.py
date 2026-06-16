@@ -19,15 +19,14 @@ def test_streamlit_sidebar_defaults_open_rectangle_and_no_cell_size_slider():
     assert 'cell = 20' in src
 
 
-def test_guideline_adjacency_scoring_was_removed_from_ui_and_layout_logic():
+def test_guideline_adjacency_scoring_lives_in_app_logic_not_static_db():
     src = APP_PATH.read_text(encoding="utf-8")
     db = load_db()
 
     assert "hospital_program_adjacency_rules" not in db
-    assert "HOSPITAL_ADJACENCY_RULES" not in src
-    assert "guideline adjacency" not in src
-    assert "인접 기준" not in src
-    assert "adjacencyScore" not in src
+    assert "HOSPITAL_ADJACENCY_RULES" in src
+    assert "scoreHospitalAdjacency" in src
+    assert "adjacencyScore" in src
     assert "hospitalProgramAdjacencyScore" not in src
 
 

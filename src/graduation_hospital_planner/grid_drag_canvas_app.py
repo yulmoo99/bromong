@@ -596,7 +596,7 @@ function chooseWideningSideForVertical(run) {
   return best && best.usable >= Math.ceil(run.length * 0.6) ? best.cc : null;
 }
 function repairLongNarrowCorridorRuns(corridorCells) {
-  // Main corridors should be 2 cells wide (3.0m). A 1-cell / 1.5m strip is allowed only as a short door connector/stub.
+  // Main corridors should be 2 cells wide (3.0m). A 1-cell / 1.8m strip is allowed only as a short door connector/stub.
   let repaired = 0;
   for (let r = 0; r < rows; r++) {
     let c = 0;
@@ -1438,11 +1438,11 @@ function updateAreaSummary() {
   const paintedArea = painted * CELL_AREA_M2;
   const net = selectedModuleNetAreaM2();
   if (net.count === 0) {
-    areaSummary.innerHTML = '<b>면적 요약</b> · 선택한 모듈이 없습니다 — 체크리스트에서 실을 선택하면 복도 포함 최소 필요 면적이 즉시 표시됩니다.<br>도면 선택 면적: <b>' + paintedArea.toFixed(1) + '㎡</b> (' + painted + '칸)';
+    areaSummary.innerHTML = '<b>면적 요약</b> · 선택한 모듈이 없습니다 — 체크리스트에서 실을 선택하면 배치 가능 최소 영역이 즉시 표시됩니다.<br>도면 선택 면적: <b>' + paintedArea.toFixed(1) + '㎡</b> (' + painted + '칸)';
     return;
   }
-  // 필요 면적 = 선택 모듈을 부서 덩어리로 묶어 복도가 감싸도록 배치했을 때의 점유 영역(복도 포함) 추정치.
-  const fp = hospitalRequiredFootprint(getSelectedHospitalProgramRequests());
+  // 배치 가능 최소 영역 = 실제 병원 모듈 배치 로직과 같은 블록 배치 규칙으로 전부 들어가는 가장 작은 직사각형 후보.
+  const fp = findMinimumHospitalPlacementFootprint(getSelectedHospitalProgramRequests());
   const requiredArea = fp.cells * CELL_AREA_M2;
   const diff = paintedArea - requiredArea;
   const diffLabel = diff >= 0
@@ -1450,7 +1450,7 @@ function updateAreaSummary() {
     : '<span class="area-shortfall">부족 ' + diff.toFixed(1) + '㎡ (약 ' + Math.ceil(-diff / CELL_AREA_M2) + '칸 더 필요)</span>';
   areaSummary.innerHTML =
     '<b>면적 요약</b> — 선택 모듈 <b>' + net.count + '개</b><br>' +
-    '모듈 순면적 <b>' + net.area.toFixed(1) + '㎡</b> &nbsp;|&nbsp; 복도 포함 최소 필요 면적 <b>' + requiredArea.toFixed(1) + '㎡</b> <span class="small">(부서 덩어리 + 감싸는 복도 ≈ ' + fp.h + '×' + fp.w + '칸)</span><br>' +
+    '모듈 순면적 <b>' + net.area.toFixed(1) + '㎡</b> &nbsp;|&nbsp; 배치 가능 최소 영역 <b>' + requiredArea.toFixed(1) + '㎡</b> <span class="small">(실제 배치 시뮬레이션 ≈ ' + fp.h + '×' + fp.w + '칸)</span><br>' +
     '도면 선택 면적 <b>' + paintedArea.toFixed(1) + '㎡</b> (' + painted + '칸) &nbsp;→&nbsp; 차이 ' + diffLabel;
 }
 function programById(id) { return HOSPITAL_PROGRAMS.find(p => p.id === id); }
@@ -1621,19 +1621,85 @@ function placeSelectedHospitalPrograms(requests, corridorCells, strategyIndex=0)
   void placedProgramInstances.length;
   return placed;
 }
+function canPlaceHospitalBlocksInRect(blocks, H, W) {
+  // 실제 배치기와 같은 핵심 조건을 작은 가상 직사각형에서 시뮬레이션한다.
+  // block 전체 직사각형이 비어 있어야 하지만, 배치 후에는 실 셀만 점유되고 남은 셀은 나중에 복도가 된다.
+  if (!blocks.length) return true;
+  const occupied = Array.from({length: H}, () => Array(W).fill(false));
+  function canPlaceBlockRect(blk, r0, c0) {
+    if (r0 < 0 || c0 < 0 || r0 + blk.H > H || c0 + blk.W > W) return false;
+    for (let r = r0; r < r0 + blk.H; r++) for (let c = c0; c < c0 + blk.W; c++) if (occupied[r][c]) return false;
+    return true;
+  }
+  function placeBlockRooms(blk, r0, c0) {
+    for (let ri = 0; ri < blk.rows.length; ri++) {
+      let cc = c0;
+      const rr = r0 + ri * (HOSPITAL_BAND_DEPTH_CELLS + 1);
+      for (const m of blk.rows[ri]) {
+        for (let r = rr; r < rr + m.h; r++) for (let c = cc; c < cc + m.w; c++) occupied[r][c] = true;
+        cc += m.w;
+      }
+    }
+  }
+  function searchFit(blk, tr, tc, maxRad) {
+    for (let rad = 0; rad <= maxRad; rad++) {
+      for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) {
+        if (Math.max(Math.abs(dr), Math.abs(dc)) !== rad) continue;
+        if (canPlaceBlockRect(blk, tr + dr, tc + dc)) return {r: tr + dr, c: tc + dc};
+      }
+    }
+    return null;
+  }
+  function firstFit(blk) {
+    for (let r = 0; r <= H - blk.H; r++) for (let c = 0; c <= W - blk.W; c++) if (canPlaceBlockRect(blk, r, c)) return {r, c};
+    return null;
+  }
+  const sorted = blocks.slice().sort((a, c) => c.H - a.H);
+  const N = sorted.length;
+  const colsN = Math.max(1, Math.round(Math.sqrt(N * W / Math.max(1, H))));
+  const rowsN = Math.max(1, Math.ceil(N / colsN));
+  const cellW = W / colsN, cellH = H / rowsN;
+  const rad = Math.ceil(Math.max(cellW, cellH)) + 4;
+  for (const [i, blk] of sorted.entries()) {
+    if (blk.W > W || blk.H > H) return false;
+    const gc = i % colsN, gr = Math.floor(i / colsN);
+    const cx = gc * cellW + cellW / 2, cy = gr * cellH + cellH / 2;
+    const pos = searchFit(blk, Math.round(cy - blk.H / 2), Math.round(cx - blk.W / 2), rad) || firstFit(blk);
+    if (!pos) return false;
+    placeBlockRooms(blk, pos.r, pos.c);
+  }
+  return true;
+}
+function findMinimumHospitalPlacementFootprint(requests) {
+  const blocks = buildDepartmentBlocks(requests, 0);
+  if (!blocks.length) return {cells: 0, w: 0, h: 0};
+  const minW = Math.max(...blocks.map(b => b.W));
+  const minH = Math.max(...blocks.map(b => b.H));
+  const candidates = [];
+  for (let h = minH; h <= rows; h++) {
+    for (let w = minW; w <= cols; w++) {
+      candidates.push({h, w, cells: h * w, aspect: Math.max(h, w) / Math.max(1, Math.min(h, w))});
+    }
+  }
+  candidates.sort((a, b) => (a.cells - b.cells) || (a.aspect - b.aspect));
+  for (const cand of candidates) {
+    if (canPlaceHospitalBlocksInRect(blocks, cand.h, cand.w)) return cand;
+  }
+  return hospitalRequiredFootprint(requests);
+}
 function hospitalRequiredFootprint(requests) {
-  // 부서 덩어리들을 2D로 타일링했을 때 필요한 영역(복도 포함) 크기를 추정한다. 면적 요약에 사용.
+  // 배치 시뮬레이션이 실패하는 비정형 예외용 보수 fallback.
   const blocks = buildDepartmentBlocks(requests, 0);
   if (!blocks.length) return {cells: 0, w: 0, h: 0};
   const totalCells = blocks.reduce((s, b) => s + b.W * b.H, 0);
   const targetW = Math.max(Math.max(...blocks.map(b => b.W)), Math.ceil(Math.sqrt(totalCells * 1.4)));
   let x = 0, y = 0, shelfH = 0, maxRight = 0;
-  for (const b of blocks) { // buildDepartmentBlocks 와 동일 순서(큰 것부터)
+  for (const b of blocks) {
     if (x + b.W > targetW) { x = 0; y = y + shelfH + 1; shelfH = 0; }
     maxRight = Math.max(maxRight, x + b.W);
     x = x + b.W + 1; shelfH = Math.max(shelfH, b.H);
   }
-  const regionW = maxRight + 2, regionH = y + shelfH + 2; // 둘레 복도 여백
+  const regionW = maxRight + 2, regionH = y + shelfH + 2;
   return {cells: regionW * regionH, w: regionW, h: regionH};
 }
 function generateHospitalLayoutOptions(programRequests) {

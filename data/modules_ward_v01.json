@@ -132,7 +132,7 @@
           3
         ]
       ],
-      "grid_note": "3x3 cells at 1.5m = 20.25㎡, conservatively above 10㎡ because a usable bedroom needs bed clearance; not a legal dimension claim.",
+      "grid_note": "3x3 cells at 1.8m = 29.16㎡ occupied grid, conservatively above the 20.25㎡ planning target and 10㎡ legal minimum because a usable bedroom needs bed clearance; not a legal dimension claim.",
       "confidence": "high_area_medium_layout",
       "planning_area_m2": 20.25,
       "shape_policy": {
@@ -285,7 +285,7 @@
           99
         ]
       ],
-      "grid_note": "2 cells at 1.5m = 3.0m planning corridor. Actual legal corridor width requires separate Korean building/medical facility verification.",
+      "grid_note": "2 cells at 1.8m = 3.6m planning corridor. Actual legal corridor width requires separate Korean building/medical facility verification.",
       "confidence": "medium_relationship_low_dimension",
       "planning_area_m2": null,
       "shape_policy": {

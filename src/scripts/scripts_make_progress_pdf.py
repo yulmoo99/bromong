@@ -202,7 +202,7 @@ c.drawString(M, 28*mm, "Source: 보건복지부 고시 「음압격리병실 설
 new_slide("구현 완료 ③ Compact Ward Layout", "DB 기반 모듈 배치 + source/confidence 표시")
 bullet_lines([
     "Place Compact Ward Modules 버튼으로 7개 필수 병동 모듈 배치",
-    "음압병실은 1.5m 계획 그리드 기준 3×3칸 = 20.25㎡로 배치: 공식 최소 10㎡ 이상을 안전하게 넘기는 계획 블록",
+    "음압병실은 1.8m 계획 그리드 기준 3×3칸 = 29.16㎡ 점유로 배치: 공식 최소 10㎡ 이상을 안전하게 넘기는 계획 블록",
     "전실/WC/간호스테이션/지원실은 필요 관계는 반영하되, 치수는 source-needed로 표시",
     "마우스 hover 시 모듈명, confidence, 근거 요약 표시",
     "Download JSON에 grid, module_codes, module_metadata, module_database_version 저장"

@@ -7,7 +7,6 @@ Run:
 
 from pathlib import Path
 from string import Template
-import base64
 import json
 import streamlit as st
 
@@ -15,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 MODULE_DB_PATH = ROOT / "data" / "modules_ward_v01.json"
 DESIGN_PATH = ROOT / "DESIGN.md"
 
-st.set_page_config(page_title="Infection Ward Planner", page_icon="◌", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Infection Ward Planner", page_icon="◌", layout="wide", initial_sidebar_state="expanded")
 
 def inject_apple_design_shell() -> None:
     """Apply the Apple Clinical Planner visual shell defined in DESIGN.md."""
@@ -30,7 +29,7 @@ def inject_apple_design_shell() -> None:
           }
           html, body, [data-testid="stAppViewContainer"] { background: var(--apple-bg); }
           [data-testid="stAppViewContainer"] > .main { background: radial-gradient(circle at top left, #ffffff 0, #f5f5f7 46%, #eef2f7 100%); }
-          .block-container { padding-top: 2.1rem; padding-bottom: 3rem; max-width: 1480px; }
+          .block-container { padding-top: 2.1rem; padding-bottom: 3rem; padding-left: 2.2rem; padding-right: 2.2rem; max-width: 1780px; }
           [data-testid="stSidebar"] { background: rgba(255,255,255,.74); border-right: 1px solid rgba(210,210,215,.72); backdrop-filter: blur(24px); min-width: 310px !important; width: 310px !important; }
           [data-testid="stSidebar"] > div:first-child { padding: 1.7rem 1.05rem 2rem 2.05rem; overflow: visible; }
           [data-testid="stSidebar"] * { max-width: 100%; }
@@ -52,25 +51,19 @@ def inject_apple_design_shell() -> None:
 inject_apple_design_shell()
 
 st.sidebar.markdown("### Controls")
-st.sidebar.caption("DESIGN.md tokens drive the Apple-style planning shell and embedded canvas.")
 cols = st.sidebar.slider("Grid columns", 10, 80, 40)
 rows = st.sidebar.slider("Grid rows", 10, 60, 30)
-cell = st.sidebar.slider("Cell size px", 12, 32, 20)
-default_bed_count = st.sidebar.number_input("Target bed count", min_value=2, max_value=24, value=10, step=2)
-tool = st.sidebar.radio("Drawing tool", ["pencil", "rectangle"], horizontal=True)
+cell = 20
+tool = st.sidebar.radio("Drawing tool", ["pencil", "rectangle"], horizontal=True, index=1)
 mode = st.sidebar.radio("Edit mode", ["paint", "erase"], horizontal=True)
 
 st.markdown(
     f"""
     <section class="apple-hero">
-      <div class="apple-eyebrow">APPLE CLINICAL PLANNER · DESIGN.md SYSTEM</div>
-      <h1>Infection Ward Layout Studio</h1>
-      <p>Generate, compare, and inspect negative-pressure ward layouts in a calmer Apple-style workspace: glass controls, soft stages, and a sharper 2D/3D architectural review flow.</p>
+      <h1>병동·병원 모듈 계획 도구</h1>
       <div class="apple-spec">
         <span class="apple-pill">{cols} × {rows} grid</span>
-        <span class="apple-pill">{default_bed_count} target beds</span>
-        <span class="apple-pill">{tool} · {mode}</span>
-        <span class="apple-pill">DESIGN.md active</span>
+        <span class="apple-pill">1칸 1.8m × 1.8m = 3.24㎡</span>
       </div>
     </section>
     """,
@@ -79,34 +72,8 @@ st.markdown(
 
 module_db = json.loads(MODULE_DB_PATH.read_text(encoding="utf-8"))
 module_meta = {m["id"]: m for m in module_db["modules"]}
-
-FURNITURE_MODEL_DIR = ROOT / "assets" / "models" / "ward_furniture"
-FURNITURE_MODEL_FILES = {
-    "hospital_bed": "hospital_bed.glb",
-    "headwall": "headwall.glb",
-    "bedside_table": "bedside_table.glb",
-    "toilet": "toilet.glb",
-    "washbasin": "washbasin.glb",
-    "shower": "shower.glb",
-    "nurse_counter": "nurse_counter.glb",
-    "medical_cart": "medical_cart.glb",
-    "supply_shelf": "supply_shelf.glb",
-    "ppe_bench": "ppe_bench.glb",
-    "ppe_cabinet": "ppe_cabinet.glb",
-    "waste_bin": "waste_bin.glb",
-    "dirty_worktop": "dirty_worktop.glb",
-}
-
-def load_furniture_model_data_urls() -> dict[str, str]:
-    urls = {}
-    for key, filename in FURNITURE_MODEL_FILES.items():
-        model_path = FURNITURE_MODEL_DIR / filename
-        if model_path.exists():
-            encoded = base64.b64encode(model_path.read_bytes()).decode("ascii")
-            urls[key] = f"data:model/gltf-binary;base64,{encoded}"
-    return urls
-
-furniture_model_urls = load_furniture_model_data_urls()
+for _m in module_db.get("hospital_program_modules", []):
+    module_meta[_m["id"]] = _m
 
 # Canvas values. 1 = usable unassigned area. 10+ = ward modules from modules_ward_v01.json.
 module_codes = {
@@ -119,6 +86,8 @@ module_codes = {
     "soiled_waste_holding": 41,
     "support_reserve": 50,
 }
+for _program in module_db.get("hospital_program_modules", []):
+    module_codes[_program["id"]] = int(_program["code"])
 code_to_module = {str(v): k for k, v in module_codes.items()}
 
 colors = {
@@ -133,26 +102,33 @@ colors = {
     "41": "#ff6961",
     "50": "#ded8cc",
 }
+_hospital_palette = ["#B8E6FF", "#B8D8FF", "#C6F6D5", "#FDE68A", "#FDBA74", "#FCA5A5", "#DDD6FE", "#F9A8D4"]
+for _idx, _program in enumerate(module_db.get("hospital_program_modules", [])):
+    colors[str(_program["code"])] = _hospital_palette[_idx % len(_hospital_palette)]
 labels = {"10": "C", "20": "R", "21": "A", "22": "WC", "30": "N", "40": "CL", "41": "D", "50": "S"}
+for _program in module_db.get("hospital_program_modules", []):
+    labels[str(_program["code"])] = _program["name_ko"].split()[0]
 
 legend_items = [
     ("1", "usable area"),
     ("10", "controlled corridor / C"),
-    ("20", "negative room / R / 법적 기준: 1인실 ≥10㎡ (전실·화장실 제외, 의료법 시행규칙 별표4)"),
-    ("21", "anteroom / A / 필수 설치 (법적 최소면적 규정 없음, 가이드라인 권장 9㎡)"),
-    ("22", "toilet·shower / WC / 필수 설치 (법적 최소면적 규정 없음, 가이드라인 권장 9㎡)"),
+    ("20", "negative room / R / 음압병상 ≥15㎡(신축·증축·개축, 개보수 10㎡) — 전실·화장실·벽체 제외, 감염병예방법 별표4의2"),
+    ("21", "anteroom / A / 전실 면적 4㎡·깊이 2.4m 이상, 양쪽 출입문 인터락 — 감염병예방법 별표4의2"),
+    ("22", "toilet·shower / WC / 병실 내부 설치(배기구만), 법적 최소면적 규정 없음 — 가이드라인 권장"),
     ("30", "nurse station / N / 운영 필수 (법적 최소면적 규정 없음, 가이드라인 권장 13.5㎡)"),
     ("40", "clean supply alcove / CL / 가이드라인 권장 배치"),
     ("41", "soiled waste holding / D / 가이드라인 권장 배치"),
     ("50", "support reserve / S / 잔여 공간 채움"),
 ]
+for _program in module_db.get("hospital_program_modules", []):
+    legend_items.append((str(_program["code"]), _program["name_ko"]))
 legend_html = "\n".join(
     f'<span><i class="swatch" style="background:{colors[k]}"></i>{name}</span>' for k, name in legend_items
 )
 
 canvas_w = cols * cell
 canvas_h = rows * cell
-height = min(max(canvas_h + 900, 1180), 1800)
+height = 1400  # 그리드를 작게 고정 표시하므로 iframe 높이도 컨텐츠에 맞춰 축소
 
 html_template = Template(r'''
 <!DOCTYPE html>
@@ -167,33 +143,44 @@ html_template = Template(r'''
     --radius-lg:24px; --radius-md:16px; --radius-sm:10px;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; color:var(--primary); background: transparent; }
-  .planner-shell { max-width: min(${canvas_w}px, 100%); margin: 0 auto; }
+  body { margin: 0; padding: 18px 4px 0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif; color:var(--primary); background: transparent; }
+  .planner-shell { max-width: min(1640px, 100%); margin: 0 auto; }
   .planner-stage { background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(251,251,253,.88)); border:1px solid rgba(210,210,215,.82); border-radius: 28px; padding: 20px; box-shadow: var(--shadow); overflow: hidden; }
   #toolbar { display:flex; justify-content:space-between; gap:18px; align-items:flex-start; margin-bottom:16px; padding-bottom:14px; border-bottom:1px solid rgba(210,210,215,.72); }
   .toolbar-title { font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif; font-size: 22px; line-height:1.08; letter-spacing:-.035em; font-weight:720; margin:0; }
   .toolbar-subtitle { margin-top:7px; color:var(--secondary); font-size:13px; line-height:1.45; max-width:680px; }
   .metric-strip { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; min-width:220px; }
   .metric-chip, #legend span { display:inline-flex; align-items:center; gap:6px; border:1px solid rgba(210,210,215,.82); background:rgba(255,255,255,.74); border-radius:999px; padding:7px 10px; color:var(--primary); font-size:12px; font-weight:650; white-space:nowrap; box-shadow:var(--soft-shadow); }
-  .canvas-wrap { border-radius:22px; background:#fff; border:1px solid rgba(210,210,215,.82); padding:12px; overflow:auto; }
+  .canvas-wrap { border-radius:22px; background:#fff; border:1px solid rgba(210,210,215,.82); padding:12px; overflow:auto; width:fit-content; max-width:100%; }
   canvas { border: 1px solid rgba(0,0,0,.10); border-radius:18px; cursor: crosshair; image-rendering: pixelated; background:#fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.7); }
   .action-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:14px 0 12px; }
+  #hospitalProgramPanel { margin: 12px 0 14px; padding: 16px; border:1px solid rgba(210,210,215,.82); border-radius:22px; background:rgba(255,255,255,.78); }
+  .program-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap:8px 12px; margin-top:10px; }
+  .program-check { display:flex; gap:10px; align-items:center; justify-content:space-between; padding:9px 11px; border-radius:14px; background:rgba(245,245,247,.78); font-size:12.5px; line-height:1.3; cursor:default; }
+  .program-check .program-name { flex:1; min-width:0; }
+  .program-check .program-qty-wrap { color:#6E6E73; white-space:nowrap; font-size:11.5px; }
+  .program-qty { width:50px; padding:5px 6px; border:1px solid rgba(210,210,215,.9); border-radius:10px; background:#fff; font-size:12px; margin-left:4px; }
   button, input::file-selector-button { appearance:none; border:1px solid rgba(210,210,215,.85); background:rgba(255,255,255,.86); color:var(--primary); border-radius:999px; padding:9px 13px; font-size:12px; font-weight:680; letter-spacing:-.01em; cursor:pointer; box-shadow:var(--soft-shadow); transition:transform .16s ease, background .16s ease, border-color .16s ease; }
   button:hover, input::file-selector-button:hover { transform:translateY(-1px); border-color:rgba(0,113,227,.34); background:#fff; }
   .action-row button:nth-child(3), .action-row button:nth-child(4), button.primary { background:var(--blue); color:white; border-color:var(--blue); box-shadow:0 8px 20px rgba(0,113,227,.22); }
   .action-row button:nth-child(3):hover, .action-row button:nth-child(4):hover, button.primary:hover { background:var(--blue-dark); }
   input[type="file"] { color:var(--secondary); font-size:12px; }
-  #legend { display:flex; flex-wrap:wrap; gap:7px; margin: 12px 0 0; font-size: 12px; line-height: 1.4; max-width: ${canvas_w}px; }
+  #legend { display:flex; flex-wrap:wrap; gap:7px; margin: 12px 0 0; font-size: 12px; line-height: 1.4; max-width: 100%; }
   .swatch { display:inline-block; width: 10px; height: 10px; border-radius:999px; border: 1px solid rgba(0,0,0,.16); }
-  #moduleInfo, #ruleReport, #optionPanel, #threeDPanel { max-width: ${canvas_w}px; margin: 16px 0 0; padding: 18px; background: rgba(255,255,255,.90); border: 1px solid rgba(210,210,215,.82); border-radius:24px; font-size: 12px; box-shadow: 0 10px 34px rgba(0,0,0,.055); }
+  #modeSelector { margin: 0 0 12px; padding: 10px 16px; border:1px solid rgba(210,210,215,.82); border-radius:14px; background:rgba(255,255,255,.72); display:flex; align-items:center; gap:14px; flex-wrap:wrap; font-size:13px; }
+  #modeSelector .mode-label { font-weight:720; color:var(--primary); letter-spacing:-.01em; }
+  #modeSelector .mode-opt { display:inline-flex; align-items:center; gap:6px; font-weight:600; color:var(--primary); cursor:pointer; }
+  #modeSelector .mode-hint { color:var(--secondary); font-size:12px; flex:1; min-width:200px; }
+  #areaSummary { margin: 14px 0 0; padding: 14px 18px; border:1px solid rgba(0,113,227,.28); border-radius:20px; background:rgba(0,113,227,.05); font-size:12.5px; line-height:1.6; color:var(--primary); }
+  #areaSummary b { letter-spacing:-.01em; }
+  .area-shortfall { color:#b91c1c; font-weight:700; }
+  .area-surplus { color:#0a7d2c; font-weight:700; }
+  #moduleInfo, #ruleReport, #optionPanel { max-width: 100%; margin: 16px 0 0; padding: 18px; background: rgba(255,255,255,.90); border: 1px solid rgba(210,210,215,.82); border-radius:24px; font-size: 12px; box-shadow: 0 10px 34px rgba(0,0,0,.055); }
+  #optionPanel { margin-top: 12px; padding: 12px 16px; font-size: 12.5px; }
   #moduleInfo { color:var(--secondary); }
   #ruleReport ul, #optionPanel ul { margin: 10px 0 0 18px; padding: 0; }
   .option-card { margin: 10px 0; padding: 14px 14px 13px; border: 1px solid rgba(210,210,215,.82); border-left: 5px solid var(--blue); border-radius:18px; background: white; clear:both; min-height:42px; box-shadow:0 8px 24px rgba(0,0,0,.045); }
   .option-card button { float: right; }
-  #threeDPanel b:first-child { display:block; font-size:16px; letter-spacing:-.018em; margin-bottom:4px; }
-  #threeDCanvas { width: ${canvas_w}px; max-width: 100%; height: 420px; border:1px solid rgba(0,0,0,.10); border-radius:20px; background: linear-gradient(#fbfbfd,#eef2f7); cursor: grab; margin-top:12px; image-rendering:auto; }
-  #threeDCanvas.dragging { cursor: grabbing; }
-  textarea { width: ${canvas_w}px; max-width: 100%; height: 86px; margin-top: 16px; font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size:11px; color:#424245; background:rgba(255,255,255,.70); border:1px solid rgba(210,210,215,.82); border-radius:18px; padding:12px; }
   .small { color:var(--secondary); font-size:11px; line-height:1.45; }
 </style>
 </head>
@@ -203,173 +190,103 @@ html_template = Template(r'''
     <div id="toolbar">
       <div>
         <div class="toolbar-title">Planning Canvas</div>
-        <div class="toolbar-subtitle">Paint the legal planning mask, generate ward alternatives, then inspect the selected option in a softer Apple-style 2D/3D review stage.</div>
+        <div class="toolbar-subtitle">영역을 칠한 뒤 배치 모드를 고르고 자동배치를 생성합니다.</div>
       </div>
       <div class="metric-strip">
         <span class="metric-chip">Mode <b>${mode}</b></span>
         <span class="metric-chip">Tool <b>${tool}</b></span>
-        <span class="metric-chip">${cols}×${rows}</span>
-        <span class="metric-chip"><input id="bedCount" type="number" min="2" max="24" step="2" value="${default_bed_count}" style="width:48px;border:0;background:transparent;font-weight:700;color:#1D1D1F;text-align:right;"/> beds</span>
+        <span class="metric-chip">${cols}×${rows}</span><span class="metric-chip">1칸 1.8m × 1.8m = 3.24㎡</span>
       </div>
+    </div>
+    <div id="modeSelector">
+      <span class="mode-label">배치 모드</span>
+      <label class="mode-opt"><input type="radio" name="placementMode" value="hospital" checked> 병원 진료 모듈</label>
+      <label class="mode-opt"><input type="radio" name="placementMode" value="ward"> 병동(병실)</label>
+      <span id="modeHint" class="mode-hint"></span>
     </div>
     <div class="canvas-wrap"><canvas id="grid" width="${canvas_w}" height="${canvas_h}"></canvas></div>
     <div class="action-row">
       <button onclick="clearGrid()">Clear</button>
       <button onclick="fillGrid()">Fill All</button>
       <button onclick="generateLayoutOptions()">Generate / Regenerate Layout Options</button>
-      <button class="primary" onclick="renderSelectedLayout3D()">View Selected Layout in 3D</button>
-      <button onclick="checkWardRules()">Check Ward Rules</button>
-      <button onclick="copyJson()">Copy JSON</button>
-      <button onclick="downloadJson()">Download JSON</button>
-      <input type="file" id="loadFile" accept=".json,application/json" onchange="loadJsonFile(event)" />
+    </div>
+    <div id="optionPanel">Generate Layout Options(생성) 버튼을 누르면 배치 결과가 여기에 표시됩니다.</div>
+    <div id="areaSummary"></div>
+    <div id="hospitalProgramPanel">
+      <b>Hospital Modular Program Checklist</b>
+      <div class="small">실을 선택하고 개수를 입력하면 자동배치합니다. 권장 면적·적용 외래 등 가이드라인 정보는 각 항목에 마우스를 올리면 표시됩니다. 수술실 선택 시 수술지원·회복실·중앙공급이 자동으로 함께 선택되며, 개수는 직접 조정할 수 있습니다.</div>
+      <div id="programChecklist" class="program-grid"></div>
     </div>
     <div id="legend">${legend_html}</div>
   </section>
-  <div id="legalNotice" style="max-width:${canvas_w}px;margin:16px 0 0;padding:14px 18px;background:rgba(255,246,230,.92);border:1px solid rgba(245,158,11,.45);border-radius:18px;font-size:11.5px;color:#92400e;line-height:1.6;">
+  <div id="legalNotice" style="max-width:100%;margin:16px 0 0;padding:14px 18px;background:rgba(255,246,230,.92);border:1px solid rgba(245,158,11,.45);border-radius:18px;font-size:11.5px;color:#92400e;line-height:1.6;">
     <b>⚠️ 법규 적용 범위 안내</b><br>
-    음압격리병실(R) 면적 기준은 <b>의료법 시행규칙 별표4</b> 및 <b>보건복지부 감염병 전담병원 설계 가이드라인(2024)</b>을 근거로 합니다.<br>
-    전실(A)·화장실(WC)·간호스테이션(N)의 면적은 <b>법적 최소 기준이 없으며</b>, 표시된 수치는 가이드라인 권장값입니다. 실제 설계 시 관련 전문가 검토가 필요합니다.<br>
-    복도 폭 기준: 메인 복도 3.0m(권장), 연결 복도 1.5m(단기 구간 한정) — 법적 최소 입원실 복도 폭 2.4m(의료법 시행규칙 별표4).<br>
+    음압격리병실(R) 면적 기준은 <b>감염병의 예방 및 관리에 관한 법률 시행규칙 별표4의2</b>(음압병상 ≥15㎡, 신축·증축·개축) 및 <b>보건복지부·한국의료복지건축학회 의료시설 건축설계 가이드라인(2018)</b>을 근거로 합니다. 일반 입원실 1인실 ≥10㎡는 의료법 시행규칙 별표4 기준입니다.<br>
+    전실(A)은 면적 4㎡·깊이 2.4m 이상이 법정 기준이며, 화장실(WC)·간호스테이션(N)의 면적은 <b>법적 최소 기준이 없어</b> 표시 수치는 가이드라인 권장값입니다. 실제 설계 시 관련 전문가 검토가 필요합니다.<br>
+    복도 폭 기준: 현재 계획 그리드는 1칸 = 1.8m × 1.8m = 3.24㎡인 1.8m grid이며, 병원 기본 모듈은 3.6m × 7.2m(2×4칸 = 25.9㎡)입니다. 병원 모듈러 모드에서는 복도를 1칸(1.8m)으로 자동배치합니다. 세부 실시설계에서는 의료법 시행규칙 제34조 [별표4], 피난·소방 기준을 별도 검토해야 합니다.<br>
     본 도구는 초기 매싱 계획 지원용이며 <b>소방법, 장애인편의시설법 등은 별도 검토</b>가 필요합니다.
   </div>
-  <div id="moduleInfo">모듈 셀에 마우스를 올리면 법적 근거 및 권장 면적을 확인할 수 있습니다. R(음압격리병실): 법적 기준 ≥10㎡ (전실·화장실 제외, 의료법 시행규칙 별표4).</div>
-  <div id="ruleReport">배치 후 <b>Check Ward Rules</b> 버튼을 눌러 병동 규칙 검토 결과를 확인하세요.</div>
-  <div id="optionPanel">Auto Layout v2 comparison will appear here after <b>Generate Layout Options</b>.</div>
-  <div id="threeDPanel"><b>3D mass viewer</b><span class="small">Select or generate a layout, then click <b>View Selected Layout in 3D</b>. Left-drag to rotate, wheel to zoom, right-drag or middle-drag to pan after zooming.</span><div id="threeDStatus" class="small"></div><canvas id="threeDCanvas" width="${canvas_w}" height="420"></canvas></div>
-  <textarea id="output" readonly></textarea>
+  <div id="basisNotice" style="max-width:100%;margin:12px 0 0;padding:14px 18px;background:rgba(0,113,227,.05);border:1px solid rgba(0,113,227,.28);border-radius:18px;font-size:11.5px;color:#1d3a5f;line-height:1.65;">
+    <b>ℹ️ 실 크기·인접 배치 기준</b><br>
+    <b>① 실 크기 산정:</b> 각 실의 칸 수는 <b>가이드라인 권장 면적</b>(보건복지부·한국의료복지건축학회, 2018)을 1.8m 격자(1칸=3.24㎡)에 맞춰 그 이상이 되는 가장 가까운 모듈 크기로 환산한 값입니다. 기본 모듈 2×4칸=25.9㎡를 단위로, 큰 실은 3×4·4×4·4×6칸으로 키웁니다. 예) 진료실 권장 15~25㎡ → 2×4칸(25.9㎡), 수술실 ≥37㎡·한 면 ≥6m → 4×4칸(7.2×7.2m, 51.8㎡), CT 45~60㎡ → 4×4칸, 투석 8베드 64~80㎡ → 4×6칸(77.8㎡). <b>각 실의 정확한 출처 면적은 체크리스트 항목에 마우스를 올리면 표시됩니다.</b><br>
+    <b>② 인접 배치:</b> 같은 진료기능(부서)끼리 한 구역에 모으고, 빈 공간은 복도로 처리해 모든 실이 복도에 접하도록 합니다. 묶음은 — <b>수술부</b>(수술실·수술지원·회복실·중앙공급/멸균물품: 수술실과 지원·멸균물류를 같은 복도에 두거나 마주보게), <b>응급·관찰</b>, <b>외래·진료</b>(진료실·검체채취·처치실), <b>영상·검사</b>(CT·일반촬영·진단검사·병리), <b>투석·수액</b>, <b>산과</b>(분만·신생아), <b>연구·행정</b>입니다. 이 기능군 묶음은 일반적인 병원 동선·청결물류·감염관리 원칙에 따른 <b>계획 휴리스틱</b>으로, 세부 인접·분리 기준(청결-오염 동선 등)은 별도 검토가 필요합니다.
+  </div>
+  <div id="moduleInfo">모듈 셀에 마우스를 올리면 법적 근거 및 권장 면적을 확인할 수 있습니다. R(음압격리병실): 음압병상 ≥15㎡ 신축(개보수 10㎡), 전실·화장실 제외 — 감염병예방법 별표4의2.</div>
+  <div id="ruleReport">배치를 생성하면 병동·병원 규칙 및 가이드라인 검토 결과가 자동으로 여기에 표시됩니다.</div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
-<script type="module">
-import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
-window.GLTFLoader = GLTFLoader;
-window.dispatchEvent(new Event("ward-gltf-loader-ready"));
-</script>
 <script>
 const rows = ${rows};
 const cols = ${cols};
 const cell = ${cell};
 const mode = ${mode_json};
 const tool = ${tool_json};
+const CELL_SIZE_M = 1.8;
+const HOSPITAL_BASE_MODULE_CELLS = {w:2, h:4};
+const HOSPITAL_CORRIDOR_WIDTH_CELLS = 1;
 const moduleDb = ${module_db_js};
 const moduleMeta = ${module_meta_js};
 const moduleCodes = ${module_codes_js};
 const codeToModule = ${code_to_module_js};
 const colors = ${colors_js};
 const labels = ${labels_js};
-const FURNITURE_MODEL_URLS = ${furniture_model_urls_js};
-const FURNITURE_MODEL_BY_TYPE = {
-  patient_bed: "hospital_bed",
-  headwall: "headwall",
-  bedside_table: "bedside_table",
-  toilet_fixture: "toilet",
-  washbasin: "washbasin",
-  handwash_sink: "washbasin",
-  shower_zone: "shower",
-  nurse_counter: "nurse_counter",
-  workstation: "nurse_counter",
-  meds_trolley: "medical_cart",
-  medical_cart: "medical_cart",
-  supply_shelving: "supply_shelf",
-  ppe_bench: "ppe_bench",
-  donning_cabinet: "ppe_cabinet",
-  waste_bin: "waste_bin",
-  dirty_worktop: "dirty_worktop"
-};
+const HOSPITAL_PROGRAMS = (moduleDb.hospital_program_modules || []);
+const HOSPITAL_PROGRAM_BUNDLES = { operating_room: ['surgery_support', 'recovery_room', 'central_supply'] };
+// These are shared department-support minimums, not one-to-one clones per OR.
+// Extra checked quantities still win through addRequest(Math.max(...)).
+const HOSPITAL_PROGRAM_BUNDLE_MIN_QTY = { operating_room: {surgery_support: 1, recovery_room: 1, central_supply: 1} };
 const canvas = document.getElementById('grid');
 const ctx = canvas.getContext('2d');
-const threeDCanvas = document.getElementById('threeDCanvas');
-const threeDCtx = null; // 3D viewer is WebGL/Three.js now; old 2D pseudo-3D helpers are retained only as dead-code reference until cleanup.
-const threeDPanel = document.getElementById('threeDPanel');
-const threeDStatus = document.getElementById('threeDStatus');
 const output = document.getElementById('output');
+const areaSummary = document.getElementById('areaSummary');
+const CELL_AREA_M2 = (moduleDb.grid_assumption && moduleDb.grid_assumption.cell_area_m2) || 3.24;
 const moduleInfo = document.getElementById('moduleInfo');
 const ruleReport = document.getElementById('ruleReport');
 const optionPanel = document.getElementById('optionPanel');
 const storageKey = 'hospital_grid_painter_' + rows + 'x' + cols;
-const MAIN_CORRIDOR_MIN_WIDTH_CELLS = 2;
-const SHORT_CONNECTOR_MAX_CELLS = 4; // 1.5m connector stubs are OK only when short; long main spines should be 2 cells / 3.0m.
-const GROUND_Z = 0;
-const FLOOR_PLANE_Z = -0.03; // site plane sits just below the room finish; rooms themselves are not raised blocks.
-const Z_HEIGHT_SCALE = 4;
-const WALL_HEIGHT = 0.24; // low cutaway wall: visible enough to read room boundaries, still far below full-height room boxes.
-const WALL_THICKNESS = 0.08;
-const ROOM_FLOOR_HEIGHT = 0.012;
-const FINISHED_FLOOR_Z = GROUND_Z; // room floors and furniture share one datum; no equipment is drawn on top of raised room boxes.
-const FURNITURE_SINK_Z = 0.018;
-const FURNITURE_FLOOR_INTERSECT_Z = FINISHED_FLOOR_Z - FURNITURE_SINK_Z; // visually tucks furniture a hair into the floor, eliminating pseudo-3D hover gaps.
-const FURNITURE_GROUND_SHADOW_Z = FINISHED_FLOOR_Z + 0.004;
-const FURNITURE_HEIGHT_SCALE = 1.60;
-const FURNITURE_MIN_VISUAL_HEIGHT = 0.12; // prevents beds/counters from reading as flat plan symbols in the pseudo-3D view.
-const FURNITURE_BASE_Z = FINISHED_FLOOR_Z; // logical datum stays floor-level; drawing uses a tiny visual intersection so objects read grounded.
-const PLAN_ZOOM_MAX = 4.0;
-const THREE_D_ZOOM_MAX = 18.0;
-const THREE_D_ZOOM_BASE = 1.36;
-const THREE_D_WHEEL_ZOOM_IN = 1.28;
-const THREE_D_WHEEL_ZOOM_OUT = 0.82;
-const FURNITURE_LIBRARY = {
-  // x/y: 실(mass) 크기 대비 0~1 비율로 가구 중심 위치 지정 (absSize:true 일 때)
-  // w/d: absSize:true → 절대 셀 단위 (1셀=1.5m), 방향/크기 무관하게 일정
-  // 진입방향: y≈0 이 출입구. 각 실은 y:0~0.22 비워둠.
-  patient_room: [
-    // 병실 4×3셀(6m×4.5m) 기준. 병상 0.9m×2.1m = 0.60×1.40셀.
-    // 병상 머리(y 큰 쪽)가 headwall에 붙도록 배치
-    {type:'headwall',      label:'headwall', x:0.50, y:0.88, w:1.00, d:0.12, h:0.10, color:'#dbeafe', absSize:true},
-    {type:'patient_bed',   label:'bed',      x:0.43, y:0.57, w:0.60, d:1.40, h:0.16, color:'#f8fafc', absSize:true},
-    {type:'bedside_table', label:'side',     x:0.72, y:0.57, w:0.33, d:0.33, h:0.11, color:'#c4b5fd', absSize:true},
-    {type:'medical_cart',  label:'cart',     x:0.80, y:0.30, w:0.40, d:0.40, h:0.12, color:'#bfdbfe', absSize:true},
-  ],
-  anteroom: [
-    // 전실 2×2셀(3m×3m). PPE벤치 1.5m×0.45m = 1.00×0.30셀.
-    {type:'ppe_bench',       label:'PPE',  x:0.35, y:0.42, w:1.00, d:0.30, h:0.10, color:'#fde68a', absSize:true},
-    {type:'handwash_sink',   label:'sink', x:0.18, y:0.66, w:0.40, d:0.30, h:0.12, color:'#bae6fd', absSize:true},
-    {type:'donning_cabinet', label:'cab',  x:0.78, y:0.62, w:0.30, d:0.40, h:0.18, color:'#fef3c7', absSize:true},
-  ],
-  wc: [
-    // 화장실 2×2셀(3m×3m). 변기 0.45m×0.65m = 0.30×0.43셀.
-    {type:'toilet_fixture', label:'WC',     x:0.24, y:0.56, w:0.30, d:0.43, h:0.13, color:'#f8fafc', absSize:true},
-    {type:'shower_zone',    label:'shower', x:0.72, y:0.56, w:0.60, d:0.60, h:0.04, color:'#bfdbfe', absSize:true},
-    {type:'washbasin',      label:'basin',  x:0.24, y:0.82, w:0.37, d:0.27, h:0.11, color:'#dbeafe', absSize:true},
-  ],
-  nurse_station: [
-    {type:'nurse_counter', label:'counter', x:0.50, y:0.22, w:2.00, d:0.30, h:0.13, color:'#ccfbf1', absSize:true},
-    {type:'workstation',   label:'PC',      x:0.25, y:0.50, w:0.60, d:0.40, h:0.12, color:'#99f6e4', absSize:true},
-    {type:'meds_trolley',  label:'meds',    x:0.72, y:0.52, w:0.40, d:0.40, h:0.12, color:'#a7f3d0', absSize:true},
-  ],
-  clean_supply: [
-    {type:'supply_shelving', label:'shelf', x:0.20, y:0.50, w:0.30, d:1.20, h:0.22, color:'#dcfce7', absSize:true},
-    {type:'supply_shelving', label:'shelf', x:0.80, y:0.50, w:0.30, d:1.20, h:0.22, color:'#dcfce7', absSize:true},
-  ],
-  soiled_holding: [
-    {type:'dirty_worktop', label:'dirty', x:0.50, y:0.22, w:1.60, d:0.30, h:0.13, color:'#fecaca', absSize:true},
-    {type:'waste_bin',     label:'bin',   x:0.25, y:0.60, w:0.33, d:0.33, h:0.12, color:'#fca5a5', absSize:true},
-    {type:'waste_bin',     label:'bin',   x:0.65, y:0.60, w:0.33, d:0.33, h:0.12, color:'#f87171', absSize:true},
-  ],
-};
+const MAIN_CORRIDOR_MIN_WIDTH_CELLS = 1;
+const SHORT_CONNECTOR_MAX_CELLS = 999; // 1.8m grid: 병원 모듈러 모드에서는 복도 1칸을 기본으로 허용.
 let isDown = false;
 let dragStart = null;
 let dragEnd = null;
 let grid = loadGrid();
 let clusterGrid = blankClusterGrid();
+let moduleIdGrid = blankClusterGrid(); // 셀별 모듈 인스턴스 id (같은 실 종류가 붙어도 실 경계를 그리기 위함)
 let layoutOptions = [];
 let compareAnalysis = null;
 let nextClusterNo = 1;
+let nextModuleNo = 1;
 let lastRuleReport = null;
 let selectedLayoutIndex = null;
-let threeDRotation = {x: -0.62, z: 0.74};
-let threeDZoom = 1.0;
-let threeDPan = {x: 0, y: 0, z: 0};
-let threeDCameraTarget = null;
-let planZoom = 1.0;
-let threeDDragging = false;
-let threeDDragMode = null; // left button rotates; right or middle button pans the zoomed WebGL view.
-let threeDLastMouse = null;
 
-function applyPlanCanvasZoom() {
-  canvas.style.width = Math.round(canvas.width * planZoom) + 'px';
-  canvas.style.height = Math.round(canvas.height * planZoom) + 'px';
-  moduleInfo.textContent = 'Plan zoom: ' + Math.round(planZoom * 100) + '%. Scroll wheel over the 2D plan to zoom; drag/paint still follows the zoomed grid.';
+function fitPlanCanvas() {
+  // 확대/축소 없이, 그리드 전체가 한 화면에 들어오도록 작게 고정 표시한다 (가로 폭 + 세로 높이 둘 다 제한, 더 작은 배율 사용).
+  const wrap = canvas.parentElement;
+  const availW = wrap ? Math.max(120, wrap.clientWidth - 28) : canvas.width;
+  const availH = 520; // 세로가 한 화면에 들어오도록 캔버스 높이 상한
+  const scale = Math.min(availW / canvas.width, availH / canvas.height);
+  canvas.style.width = Math.round(canvas.width * scale) + 'px';
+  canvas.style.height = Math.round(canvas.height * scale) + 'px';
 }
 
 function newClusterId() { return 'cluster_' + String(nextClusterNo++).padStart(2, '0'); }
@@ -396,12 +313,12 @@ function neighbors4(r, c) { return [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].filter(([rr
 
 function moduleDimensionText(value, widthCells = null, heightCells = null) {
   const moduleId = codeToModule[String(value)];
-  if (!moduleId) return value === 1 ? 'usable cell: 1.5m × 1.5m = 2.25㎡' : 'outside';
+  if (!moduleId) return value === 1 ? 'usable cell: 1.8m × 1.8m = 3.24㎡' : 'outside';
   const meta = moduleMeta[moduleId] || {};
   const preferred = meta.shape_policy && meta.shape_policy.preferred_grid_sizes ? meta.shape_policy.preferred_grid_sizes[0] : null;
   const w = widthCells || (preferred ? preferred[0] : 1);
   const h = heightCells || (preferred ? preferred[1] : 1);
-  return w + '×' + h + ' cells / ' + (w * 1.5).toFixed(1) + 'm × ' + (h * 1.5).toFixed(1) + 'm / ≈' + (w * h * moduleDb.grid_assumption.cell_area_m2).toFixed(1) + '㎡';
+  return w + '×' + h + ' cells / ' + (w * CELL_SIZE_M).toFixed(1) + 'm × ' + (h * CELL_SIZE_M).toFixed(1) + 'm / ≈' + (w * h * moduleDb.grid_assumption.cell_area_m2).toFixed(1) + '㎡';
 }
 function isWardSuiteClusterValue(value) {
   return [moduleCodes.negative_pressure_patient_room, moduleCodes.anteroom, moduleCodes.ensuite_toilet_shower].includes(value);
@@ -433,6 +350,61 @@ function drawClusterOutlines() {
   }
   ctx.restore();
 }
+function drawModuleOutlines() {
+  // 각 모듈 인스턴스의 경계를 그린다. 같은 실 종류가 인접해 한 덩어리로 보이는 것을 방지.
+  ctx.save();
+  ctx.strokeStyle = 'rgba(38,38,42,.9)';
+  ctx.lineWidth = Math.max(1.5, Math.floor(cell * 0.09));
+  const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const id = moduleIdGrid[r][c];
+    if (!id) continue;
+    const x = c * cell, y = r * cell;
+    for (const [dr, dc] of directions) {
+      const rr = r + dr, cc = c + dc;
+      if (rr >= 0 && rr < rows && cc >= 0 && cc < cols && moduleIdGrid[rr][cc] === id) continue;
+      ctx.beginPath();
+      if (dr === -1) { ctx.moveTo(x, y); ctx.lineTo(x + cell, y); }
+      if (dr === 1) { ctx.moveTo(x, y + cell); ctx.lineTo(x + cell, y + cell); }
+      if (dc === -1) { ctx.moveTo(x, y); ctx.lineTo(x, y + cell); }
+      if (dc === 1) { ctx.moveTo(x + cell, y); ctx.lineTo(x + cell, y + cell); }
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+function drawModuleComponentLabels() {
+  if (cell < 16) return;
+  const visitedLabels = new Set();
+  ctx.save();
+  ctx.fillStyle = '#1d1d1f';
+  ctx.font = Math.max(9, Math.floor(cell * 0.42)) + 'px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let r0 = 0; r0 < rows; r0++) for (let c0 = 0; c0 < cols; c0++) {
+    const value = grid[r0][c0];
+    const label = labelFor(value);
+    const key0 = keyOf(r0, c0);
+    if (!label || value === 0 || visitedLabels.has(key0)) continue;
+    const moduleId0 = moduleIdGrid[r0][c0];
+    const q = [[r0, c0]];
+    visitedLabels.add(key0);
+    let n = 0, sumR = 0, sumC = 0;
+    while (q.length) {
+      const [r, c] = q.shift();
+      n++; sumR += r; sumC += c;
+      for (const [rr, cc] of neighbors4(r, c)) {
+        const k = keyOf(rr, cc);
+        // 같은 코드이면서 같은 모듈 id일 때만 한 덩어리로 본다 → 같은 실이 인접해도 각각 이름이 뜬다(병동 모듈은 id가 null로 동일하므로 기존대로 동작).
+        if (!visitedLabels.has(k) && grid[rr][cc] === value && moduleIdGrid[rr][cc] === moduleId0) { visitedLabels.add(k); q.push([rr, cc]); }
+      }
+    }
+    if (n < 1) continue;
+    const centroid = {x: (sumC / n) * cell + cell / 2, y: (sumR / n) * cell + cell / 2};
+    ctx.fillText(label, centroid.x, centroid.y);
+  }
+  ctx.restore();
+}
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
@@ -441,15 +413,9 @@ function draw() {
     ctx.fillRect(c * cell, r * cell, cell, cell);
     ctx.strokeStyle = '#d0d0d0';
     ctx.strokeRect(c * cell, r * cell, cell, cell);
-    const label = labelFor(value);
-    if (label && cell >= 16) {
-      ctx.fillStyle = '#222';
-      ctx.font = Math.max(9, Math.floor(cell * 0.45)) + 'px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(label, c * cell + cell / 2, r * cell + cell / 2);
-    }
   }
+  drawModuleOutlines();
+  drawModuleComponentLabels();
   drawClusterOutlines();
   if (dragStart && dragEnd) {
     const r1 = Math.min(dragStart.r, dragEnd.r), r2 = Math.max(dragStart.r, dragEnd.r);
@@ -461,8 +427,9 @@ function draw() {
     ctx.strokeRect(c1 * cell, r1 * cell, (c2 - c1 + 1) * cell, (r2 - r1 + 1) * cell);
     ctx.lineWidth = 1;
   }
-  output.value = JSON.stringify(grid);
+  if (output) output.value = JSON.stringify(grid);
   saveGrid();
+  updateAreaSummary();
 }
 function cellFromEvent(e) {
   const rect = canvas.getBoundingClientRect();
@@ -536,7 +503,9 @@ function gridHasUsableArea() { return grid.some(row => row.some(v => v !== 0)); 
 function resetModulesToUsableArea() {
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (grid[r][c] !== 0) grid[r][c] = 1;
   clusterGrid = blankClusterGrid();
+  moduleIdGrid = blankClusterGrid();
   nextClusterNo = 1;
+  nextModuleNo = 1;
 }
 function createDefaultMaskForBedCount(targetBeds) {
   grid = blankGrid();
@@ -725,6 +694,42 @@ function connectedComponentsOf(value) {
     comps.push(comp);
   }
   return comps;
+}
+function ensureAllCorridorsConnected(corridorCells) {
+  let comps = connectedComponentsOf(moduleCodes.controlled_corridor);
+  if (comps.length <= 1) return true;
+  comps.sort((a, b) => b.length - a.length);
+  let mainKeys = new Set(comps[0].map(([r, c]) => keyOf(r, c)));
+  let repaired = false;
+  for (let compIndex = 1; compIndex < comps.length; compIndex++) {
+    const q = comps[compIndex].slice();
+    const seen = new Set(q.map(([r, c]) => keyOf(r, c)));
+    const prev = new Map();
+    let targetKey = null;
+    for (let i = 0; i < q.length && !targetKey; i++) {
+      const [r, c] = q[i];
+      for (const [rr, cc] of neighbors4(r, c)) {
+        const k = keyOf(rr, cc);
+        if (seen.has(k)) continue;
+        if (!(grid[rr][cc] === 1 || grid[rr][cc] === moduleCodes.controlled_corridor)) continue;
+        seen.add(k);
+        prev.set(k, keyOf(r, c));
+        if (mainKeys.has(k)) { targetKey = k; break; }
+        q.push([rr, cc]);
+      }
+    }
+    if (!targetKey) continue;
+    let cur = targetKey;
+    while (cur) {
+      const [rr, cc] = parseKey(cur);
+      if (grid[rr][cc] === 1) { markCorridor(rr, cc, corridorCells || []); repaired = true; }
+      if (comps[compIndex].some(([r, c]) => keyOf(r, c) === cur)) break;
+      cur = prev.get(cur);
+    }
+    comps = connectedComponentsOf(moduleCodes.controlled_corridor).sort((a, b) => b.length - a.length);
+    mainKeys = new Set(comps[0].map(([r, c]) => keyOf(r, c)));
+  }
+  return connectedComponentsOf(moduleCodes.controlled_corridor).length <= 1 || repaired;
 }
 function checkModuleShapePolicies() { return {ok:true, message:'Shape / aspect ratio checks: aspect_ratio_preferred_max'}; }
 function addPerimeterLoop(top, bottom, left, right, corridorCells) {
@@ -1235,7 +1240,7 @@ function longestNarrowCorridorRun(axis) {
 function corridorWidthPolicyReport() {
   const longest = Math.max(longestNarrowCorridorRun('H'), longestNarrowCorridorRun('V'));
   const ok = longest <= SHORT_CONNECTOR_MAX_CELLS;
-  return {ok, issues: ok ? [] : ['long 1-cell corridor run: ' + longest + ' cells'], message: ok ? 'Main corridor width OK: 2-cell / 3.0m main runs, only short 1-cell / 1.5m connectors allowed' : 'Main corridor width issue: long 1-cell / 1.5m run detected (' + longest + ' cells); main corridor should be 2 cells / 3.0m'};
+  return {ok, issues: ok ? [] : ['long 1-cell corridor run: ' + longest + ' cells'], message: ok ? 'Corridor width OK: 1-cell / 1.8m modular planning corridor policy' : 'Corridor width issue: unexpected corridor policy conflict (' + longest + ' cells)'};
 }
 function moduleCellsReachableFromCorridor() {
   const reachable = corridorReachableSet();
@@ -1325,6 +1330,335 @@ function placeCompactWardModules(targetBeds, strategyIndex=0) {
   validateConstraintFirstLayout();
   return placedSuites;
 }
+
+function programGuidelineTooltip(p) {
+  // Guideline detail lives in this hover tooltip so the checkbox itself stays as just 실 이름 + 개수.
+  const parts = [];
+  if (p.recommended_area) parts.push('권장 면적: ' + p.recommended_area);
+  if (p.applies_to && p.applies_to.length) parts.push('적용: ' + p.applies_to.join(', '));
+  parts.push('계획 면적 ≈ ' + (p.planning_area_m2 || 0) + '㎡');
+  return parts.join(' · ');
+}
+const programChecklistKey = 'hospital_program_checklist_v1';
+function saveProgramChecklist() {
+  // 사이드바 조작 시 Streamlit이 iframe을 다시 로드해도 선택이 유지되도록 localStorage에 저장.
+  const state = {};
+  document.querySelectorAll('.hospital-program-checkbox').forEach(box => {
+    const qty = document.querySelector('.program-qty[data-program-id="' + box.value + '"]');
+    if (box.checked && qty && Number(qty.value || 0) > 0) state[box.value] = Number(qty.value);
+  });
+  try { localStorage.setItem(programChecklistKey, JSON.stringify(state)); } catch (e) {}
+}
+function loadProgramChecklist() {
+  try { return JSON.parse(localStorage.getItem(programChecklistKey)) || null; } catch (e) { return null; }
+}
+function renderHospitalProgramChecklist() {
+  const panel = document.getElementById('programChecklist');
+  if (!panel) return;
+  panel.innerHTML = HOSPITAL_PROGRAMS.map((p, idx) => {
+    const defaultQty = Number(p.default_quantity || 0);
+    const checked = defaultQty > 0 ? ' checked' : '';
+    const qtyValue = Math.max(0, defaultQty || 0);
+    const tip = programGuidelineTooltip(p).replace(/"/g, '&quot;');
+    return '<label class="program-check" title="' + tip + '"><span class="program-name"><input type="checkbox" class="hospital-program-checkbox" value="' + p.id + '"' + checked + '> <b>' + p.name_ko + '</b></span><span class="program-qty-wrap">개수<input class="program-qty" data-program-id="' + p.id + '" type="number" min="0" max="20" step="' + (p.quantity_step || 1) + '" value="' + qtyValue + '"></span></label>';
+  }).join('');
+  // 이전에 저장된 선택을 복원 (사이드바 조작/리로드 후에도 유지)
+  const saved = loadProgramChecklist();
+  if (saved) {
+    panel.querySelectorAll('.hospital-program-checkbox').forEach(box => {
+      const qty = panel.querySelector('.program-qty[data-program-id="' + box.value + '"]');
+      if (saved[box.value] != null) { box.checked = true; if (qty) qty.value = saved[box.value]; }
+      else { box.checked = false; if (qty) qty.value = 0; }
+    });
+  }
+  const syncBoxQty = (box) => {
+    const qty = panel.querySelector('.program-qty[data-program-id="' + box.value + '"]');
+    if (!qty) return;
+    if (box.checked && Number(qty.value || 0) < 1) qty.value = 1;
+    if (!box.checked) qty.value = 0;
+  };
+  panel.querySelectorAll('.hospital-program-checkbox').forEach(box => box.addEventListener('change', () => {
+    syncBoxQty(box);
+    // Selecting 수술실 auto-selects its mandatory support set (수술지원·회복실·중앙공급); 개수는 직접 조정 가능.
+    if (box.checked) {
+      for (const bundledId of (HOSPITAL_PROGRAM_BUNDLES[box.value] || [])) {
+        const bundledBox = panel.querySelector('.hospital-program-checkbox[value="' + bundledId + '"]');
+        if (bundledBox && !bundledBox.checked) { bundledBox.checked = true; syncBoxQty(bundledBox); }
+      }
+    }
+    saveProgramChecklist();
+    updateAreaSummary();
+  }));
+  panel.querySelectorAll('.program-qty').forEach(qty => qty.addEventListener('input', () => {
+    const box = panel.querySelector('.hospital-program-checkbox[value="' + qty.getAttribute('data-program-id') + '"]');
+    if (box) box.checked = Number(qty.value || 0) > 0;
+    saveProgramChecklist();
+    updateAreaSummary();
+  }));
+  updateAreaSummary();
+}
+function selectedModuleNetAreaM2() {
+  const requests = getSelectedHospitalProgramRequests();
+  let cells = 0, count = 0;
+  for (const req of requests) {
+    const size = req.program.preferred_grid_size || [HOSPITAL_BASE_MODULE_CELLS.w, HOSPITAL_BASE_MODULE_CELLS.h];
+    cells += req.quantity * size[0] * size[1];
+    count += req.quantity;
+  }
+  return {cells, count, area: cells * CELL_AREA_M2};
+}
+const placementModeKey = 'placement_mode_v1';
+function getPlacementMode() {
+  const el = document.querySelector('input[name="placementMode"]:checked');
+  return el ? el.value : 'hospital';
+}
+function updateModeHint() {
+  const hint = document.getElementById('modeHint');
+  if (!hint) return;
+  hint.textContent = getPlacementMode() === 'hospital'
+    ? '체크리스트에서 선택한 진료 실(부서 덩어리)을 배치합니다.'
+    : '체크리스트와 무관하게, 그린 영역에 병실·전실·화장실로 구성된 병동을 배치합니다.';
+}
+function setupModeSelector() {
+  let saved = null;
+  try { saved = localStorage.getItem(placementModeKey); } catch (e) {}
+  document.querySelectorAll('input[name="placementMode"]').forEach(radio => {
+    if (saved) radio.checked = (radio.value === saved);
+    radio.addEventListener('change', () => {
+      try { localStorage.setItem(placementModeKey, getPlacementMode()); } catch (e) {}
+      updateModeHint();
+      updateAreaSummary();
+    });
+  });
+  updateModeHint();
+}
+function updateAreaSummary() {
+  if (!areaSummary) return;
+  const painted = usableAreaStats().area;
+  const paintedArea = painted * CELL_AREA_M2;
+  const net = selectedModuleNetAreaM2();
+  if (net.count === 0) {
+    areaSummary.innerHTML = '<b>면적 요약</b> · 선택한 모듈이 없습니다 — 체크리스트에서 실을 선택하면 복도 포함 최소 필요 면적이 즉시 표시됩니다.<br>도면 선택 면적: <b>' + paintedArea.toFixed(1) + '㎡</b> (' + painted + '칸)';
+    return;
+  }
+  // 필요 면적 = 선택 모듈을 부서 덩어리로 묶어 복도가 감싸도록 배치했을 때의 점유 영역(복도 포함) 추정치.
+  const fp = hospitalRequiredFootprint(getSelectedHospitalProgramRequests());
+  const requiredArea = fp.cells * CELL_AREA_M2;
+  const diff = paintedArea - requiredArea;
+  const diffLabel = diff >= 0
+    ? '<span class="area-surplus">여유 +' + diff.toFixed(1) + '㎡ (약 ' + Math.floor(diff / CELL_AREA_M2) + '칸)</span>'
+    : '<span class="area-shortfall">부족 ' + diff.toFixed(1) + '㎡ (약 ' + Math.ceil(-diff / CELL_AREA_M2) + '칸 더 필요)</span>';
+  areaSummary.innerHTML =
+    '<b>면적 요약</b> — 선택 모듈 <b>' + net.count + '개</b><br>' +
+    '모듈 순면적 <b>' + net.area.toFixed(1) + '㎡</b> &nbsp;|&nbsp; 복도 포함 최소 필요 면적 <b>' + requiredArea.toFixed(1) + '㎡</b> <span class="small">(부서 덩어리 + 감싸는 복도 ≈ ' + fp.h + '×' + fp.w + '칸)</span><br>' +
+    '도면 선택 면적 <b>' + paintedArea.toFixed(1) + '㎡</b> (' + painted + '칸) &nbsp;→&nbsp; 차이 ' + diffLabel;
+}
+function programById(id) { return HOSPITAL_PROGRAMS.find(p => p.id === id); }
+function getSelectedHospitalProgramRequests() {
+  const requests = [];
+  const seen = new Map();
+  function addRequest(programId, quantity, bundled=false) {
+    const program = programById(programId);
+    if (!program || quantity <= 0) return;
+    const prev = seen.get(programId);
+    if (prev) { prev.quantity = Math.max(prev.quantity, quantity); prev.bundled = prev.bundled || bundled; return; }
+    const req = {program, id: program.id, quantity, bundled};
+    seen.set(programId, req); requests.push(req);
+  }
+  document.querySelectorAll('.hospital-program-checkbox:checked').forEach(box => {
+    const qtyInput = document.querySelector('.program-qty[data-program-id="' + box.value + '"]');
+    const quantity = Math.max(1, Number(qtyInput && qtyInput.value || 1));
+    addRequest(box.value, quantity, false);
+    for (const bundledId of (HOSPITAL_PROGRAM_BUNDLES[box.value] || [])) {
+      const bundledQuantity = Number((HOSPITAL_PROGRAM_BUNDLE_MIN_QTY[box.value] || {})[bundledId] || 1);
+      addRequest(bundledId, bundledQuantity, true);
+    }
+  });
+  return requests;
+}
+function getSelectedHospitalPrograms() {
+  return getSelectedHospitalProgramRequests().map(req => req.program);
+}
+function expandHospitalProgramRequests(requests) {
+  const placedProgramInstances = [];
+  for (const request of requests) {
+    for (let i=0; i<request.quantity; i++) placedProgramInstances.push({program: request.program, id: request.id, instanceIndex: i, bundled: request.bundled});
+  }
+  return placedProgramInstances;
+}
+function hospitalProgramRectFor(program, rotate=false) {
+  const size = program.preferred_grid_size || [HOSPITAL_BASE_MODULE_CELLS.w, HOSPITAL_BASE_MODULE_CELLS.h];
+  const w = rotate ? size[1] : size[0];
+  const h = rotate ? size[0] : size[1];
+  return {w, h};
+}
+const HOSPITAL_BAND_DEPTH_CELLS = 4; // 모듈 깊이 = 4칸(7.2m). 부서 덩어리는 이 깊이를 기준으로 1~2열로 묶인다.
+// 같은 부서(진료기능)끼리 하나의 덩어리로 묶고, 그 덩어리들을 복도가 감싸도록 한다.
+const HOSPITAL_DEPARTMENT = {
+  operating_room:'surg', surgery_support:'surg', recovery_room:'surg', central_supply:'surg',
+  exam_room:'exam', specimen_collection:'exam', treatment_room:'exam',
+  ct_suite:'img', xray_room:'img', diagnostic_lab:'img', pathology_lab:'img',
+  emergency_care:'acute', observation_4bed:'acute',
+  infusion_6bed:'inf', dialysis_4bed:'inf', dialysis_8bed:'inf',
+  delivery_room:'obs', newborn_treatment:'obs',
+  clinical_research_lab:'adm', data_analysis_room:'adm', meeting_room:'adm', administration:'adm'
+};
+const HOSPITAL_DEPARTMENT_ORDER = ['surg','acute','exam','img','inf','obs','adm'];
+function normalizedModuleWH(program) {
+  // 모듈 깊이를 밴드(4칸)에 맞추도록 회전 방향을 정한다.
+  const a = hospitalProgramRectFor(program, false);
+  if (a.h === HOSPITAL_BAND_DEPTH_CELLS) return a;
+  const b = hospitalProgramRectFor(program, true);
+  if (b.h === HOSPITAL_BAND_DEPTH_CELLS) return b;
+  return a;
+}
+function placeOneHospitalModule(r0, c0, h, w, code) {
+  // 모듈을 배치하고, 같은 코드끼리 붙어도 각 실의 경계를 그릴 수 있도록 고유 id를 moduleIdGrid에 기록한다.
+  if (!fillModuleStrict(r0, c0, h, w, code)) return false;
+  const id = 'm' + String(nextModuleNo++).padStart(3, '0');
+  for (let r = r0; r < r0 + h; r++) for (let c = c0; c < c0 + w; c++) moduleIdGrid[r][c] = id;
+  return true;
+}
+function departmentRows(dept, mods) {
+  // 부서 덩어리 내부를 '마주보는 줄'로 나눈다(줄 사이 1칸은 비워 가운데 복도 → 양면복도/마주보기). 한 줄에 여러 실을 가로로 둔다.
+  if (mods.length <= 1) return [mods];
+  if (dept === 'surg') {
+    const ors = mods.filter(m => m.code === moduleCodes.operating_room);
+    const support = mods.filter(m => m.code !== moduleCodes.operating_room);
+    if (ors.length && support.length) {
+      // 수술실을 윗줄/아랫줄로 나누고 지원 코어(수술지원·중앙공급·회복)를 가운데 두어, 수술실이 코어를 사이에 두고 마주보게 한다.
+      const half = Math.ceil(ors.length / 2);
+      const out = [];
+      if (ors.slice(0, half).length) out.push(ors.slice(0, half)); // 수술실 윗줄
+      out.push(support);                                           // 지원 코어 (가운데)
+      if (ors.slice(half).length) out.push(ors.slice(half));       // 수술실 아랫줄
+      return out;
+    }
+  }
+  // 기본: 실 개수 기준 2줄로 나눠 서로 마주보게 한다.
+  const half = Math.ceil(mods.length / 2);
+  return [mods.slice(0, half), mods.slice(half)].filter(r => r.length);
+}
+function buildDepartmentBlocks(requests, strategyIndex) {
+  // 부서별로 하나의 덩어리(block)를 만든다. 덩어리는 마주보는 여러 줄로 구성되고, 줄 사이엔 복도가 들어간다.
+  const instances = expandHospitalProgramRequests(requests);
+  const byDept = {};
+  for (const inst of instances) { const d = HOSPITAL_DEPARTMENT[inst.program.id] || 'adm'; (byDept[d] = byDept[d] || []).push(inst); }
+  const order = strategyIndex === 1 ? HOSPITAL_DEPARTMENT_ORDER.slice().reverse() : HOSPITAL_DEPARTMENT_ORDER;
+  const blocks = [];
+  for (const d of order) {
+    const list = byDept[d]; if (!list || !list.length) continue;
+    const mods = list.map(inst => { const wh = normalizedModuleWH(inst.program); return {w: wh.w, h: wh.h, code: moduleCodes[inst.program.id]}; });
+    const blockRows = departmentRows(d, mods);
+    const W = Math.max(...blockRows.map(r => r.reduce((s, m) => s + m.w, 0)));
+    const H = blockRows.length * HOSPITAL_BAND_DEPTH_CELLS + (blockRows.length - 1); // 줄 사이 복도 포함
+    blocks.push({W, H, rows: blockRows, dept: d});
+  }
+  // 큰 덩어리 먼저 놓으면 2D 패킹이 촘촘해진다 (전략2는 면적 기준).
+  blocks.sort((a, b) => strategyIndex === 2 ? (b.W * b.H - a.W * a.H) : (b.H - a.H));
+  return blocks;
+}
+function placeDepartmentBlockAt(blk, r0, c0) {
+  for (let ri = 0; ri < blk.rows.length; ri++) {
+    let cc = c0; const rr = r0 + ri * (HOSPITAL_BAND_DEPTH_CELLS + 1); // 줄 사이 1칸은 비워 가운데 복도
+    for (const m of blk.rows[ri]) { placeOneHospitalModule(rr, cc, m.h, m.w, m.code); cc += m.w; }
+  }
+}
+function searchDepartmentBlockFit(blk, tr, tc, maxRad) {
+  // 목표 위치 주변을 점점 넓혀가며(spiral) 칠해진(==1) 직사각형 자리를 찾는다.
+  for (let rad = 0; rad <= maxRad; rad++) {
+    for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) {
+      if (Math.max(Math.abs(dr), Math.abs(dc)) !== rad) continue;
+      if (canPlaceModule(tr + dr, tc + dc, blk.H, blk.W)) return {r: tr + dr, c: tc + dc};
+    }
+  }
+  return null;
+}
+function globalFirstFitBlock(blk, b) {
+  for (let r = b.minR; r <= b.maxR - blk.H + 1; r++)
+    for (let c = b.minC; c <= b.maxC - blk.W + 1; c++)
+      if (canPlaceModule(r, c, blk.H, blk.W)) return {r, c};
+  return null;
+}
+function packDepartmentBlocksDistributed(blocks) {
+  // 부서 덩어리를 칠한 영역 전체에 '고르게 분산'한다: 영역을 cols×rowsN 격자 칸으로 나눠 각 칸 중앙에 덩어리를 놓고,
+  // 자리가 막히면 주변을 탐색해 유동적으로 들어간다. 빈 공간은 복도가 되어 부서들을 나눈다. → 아래쪽까지 채워진다.
+  const b = usableBounds(); if (!b) return 0;
+  const W = b.maxC - b.minC + 1, H = b.maxR - b.minR + 1;
+  const sorted = blocks.slice().sort((a, c) => c.H - a.H); // 큰 덩어리부터 자리 잡기
+  const N = sorted.length;
+  const cols = Math.max(1, Math.round(Math.sqrt(N * W / Math.max(1, H))));
+  const rowsN = Math.max(1, Math.ceil(N / cols));
+  const cellW = W / cols, cellH = H / rowsN;
+  const rad = Math.ceil(Math.max(cellW, cellH)) + 4;
+  let placed = 0;
+  sorted.forEach((blk, i) => {
+    if (blk.W > W || blk.H > H) return; // 영역보다 큰 덩어리는 배치 불가
+    const gc = i % cols, gr = Math.floor(i / cols);
+    const cx = b.minC + gc * cellW + cellW / 2, cy = b.minR + gr * cellH + cellH / 2;
+    const tr = Math.round(cy - blk.H / 2), tc = Math.round(cx - blk.W / 2);
+    const pos = searchDepartmentBlockFit(blk, tr, tc, rad) || globalFirstFitBlock(blk, b);
+    if (pos) { placeDepartmentBlockAt(blk, pos.r, pos.c); placed += blk.rows.reduce((s, r) => s + r.length, 0); }
+  });
+  return placed;
+}
+function markHospitalDepartmentCorridorNetwork(strategyIndex, corridorCells) {
+  // 배치 후 남은 빈칸(==1)을 전부 복도로 만든다(요청: 비는 공간은 복도). 모듈 사이 밴드 간격·여백이 모두 복도가 되어
+  // 하나로 연결된 순환 복도망이 되고, 모든 실이 복도에 접한다. (ring=둘레, branchRows=밴드 사이 복도 행)
+  const ring = true;
+  const branchRows = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) if (grid[r][c] === 1) markCorridor(r, c, corridorCells);
+    branchRows.push(r);
+  }
+  void ring; void branchRows.length;
+}
+function placeSelectedHospitalPrograms(requests, corridorCells, strategyIndex=0) {
+  const placedProgramInstances = expandHospitalProgramRequests(requests); // (배치 인스턴스 목록)
+  const blocks = buildDepartmentBlocks(requests, strategyIndex);
+  const placed = packDepartmentBlocksDistributed(blocks);
+  markHospitalDepartmentCorridorNetwork(strategyIndex, corridorCells); // 빈 공간 → 복도(부서 사이/줄 사이 포함)
+  void placedProgramInstances.length;
+  return placed;
+}
+function hospitalRequiredFootprint(requests) {
+  // 부서 덩어리들을 2D로 타일링했을 때 필요한 영역(복도 포함) 크기를 추정한다. 면적 요약에 사용.
+  const blocks = buildDepartmentBlocks(requests, 0);
+  if (!blocks.length) return {cells: 0, w: 0, h: 0};
+  const totalCells = blocks.reduce((s, b) => s + b.W * b.H, 0);
+  const targetW = Math.max(Math.max(...blocks.map(b => b.W)), Math.ceil(Math.sqrt(totalCells * 1.4)));
+  let x = 0, y = 0, shelfH = 0, maxRight = 0;
+  for (const b of blocks) { // buildDepartmentBlocks 와 동일 순서(큰 것부터)
+    if (x + b.W > targetW) { x = 0; y = y + shelfH + 1; shelfH = 0; }
+    maxRight = Math.max(maxRight, x + b.W);
+    x = x + b.W + 1; shelfH = Math.max(shelfH, b.H);
+  }
+  const regionW = maxRight + 2, regionH = y + shelfH + 2; // 둘레 복도 여백
+  return {cells: regionW * regionH, w: regionW, h: regionH};
+}
+function generateHospitalLayoutOptions(programRequests) {
+  const base = cloneGrid(grid);
+  layoutOptions = [];
+  let lastPlaced = 0;
+  for (let strategy=0; strategy<1; strategy++) { // 단일 배치안 (3가지 비교 제거)
+    grid = cloneGrid(base);
+    if (!gridHasUsableArea()) fillGrid();
+    resetModulesToUsableArea();
+    const corridorCells = [];
+    // 모듈을 먼저 배치한 뒤 placeSelectedHospitalPrograms 내부에서 빈 공간을 복도로 만든다(여기서 미리 호출하면 빈 영역이 통째로 복도가 되어 배치가 막힘).
+    const placedPrograms = placeSelectedHospitalPrograms(programRequests, corridorCells, strategy);
+    ensureAllCorridorsConnected(corridorCells);
+    fillRemainingEdgeCells(corridorCells);
+    const score = layoutUtilizationScore();
+    layoutOptions.push({grid: cloneGrid(grid), clusterGrid: cloneGrid(clusterGrid), moduleIdGrid: cloneGrid(moduleIdGrid), score, placedSuites: 0, placedPrograms, corridorStrategy: 'hospital_program:department_cluster'});
+    lastPlaced = placedPrograms;
+  }
+  selectLayoutOption(0);
+  const requested = expandHospitalProgramRequests(programRequests).length;
+  const shortfall = requested - lastPlaced;
+  optionPanel.innerHTML = '<b>배치 완료</b> · 배치 모듈 <b>' + lastPlaced + '개</b>' + (shortfall > 0 ? ' <span style="color:#b91c1c;">(공간 부족으로 ' + shortfall + '개 미배치 — 영역을 더 그리거나 면적 요약의 필요 면적을 확인하세요)</span>' : '') + '. 부서별로 묶어 복도로 분리했습니다.';
+}
+
 function compareLayoutOptions() {
   compareAnalysis = layoutOptions.map((opt, idx) => ({idx, signature: distinctSignature(opt.grid), score: opt.score.score}));
   return compareAnalysis;
@@ -1347,9 +1681,9 @@ function drawMiniPreview(canvasId, optGrid) {
 }
 function renderOptionPanel() {
   compareLayoutOptions();
-  const previewW = Math.min(280, Math.floor((canvas.width - 60) / Math.max(1, layoutOptions.length)));
-  let html = '<b style="font-size:14px;letter-spacing:-.018em;">Auto Layout v2 — 3가지 배치안 비교</b>';
-  html += '<div style="display:flex;gap:14px;margin-top:14px;flex-wrap:wrap;">';
+  const previewW = 300; // 그리드 옆 세로 컬럼: 3가지 안을 위→아래로 쌓는다.
+  let html = '<b style="font-size:14px;letter-spacing:-.018em;">3가지 배치안</b>';
+  html += '<div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">';
   layoutOptions.forEach((opt, idx) => {
     const label = strategyLabelForIndex(idx, opt.corridorStrategy);
     const sig = distinctSignature(opt.grid);
@@ -1357,7 +1691,7 @@ function renderOptionPanel() {
     const roomCells = parseInt(bedCount, 10) || 0;
     const bedEst = Math.floor(roomCells / (unifiedSuitePreset.up_down.roomH * unifiedSuitePreset.up_down.roomW));
     const areaScore = (opt.score.areaFillScore * 100).toFixed(0);
-    html += '<div class="option-card" style="flex:1;min-width:' + previewW + 'px;max-width:340px;padding:14px;">';
+    html += '<div class="option-card" style="margin:0;width:100%;padding:14px;">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
     html += '<b>옵션 ' + (idx+1) + '</b>';
     html += '<button onclick="selectLayoutOption(' + idx + ')" style="font-size:11px;padding:6px 12px;">이 안 선택</button>';
@@ -1365,7 +1699,7 @@ function renderOptionPanel() {
     html += '<canvas id="miniPreview' + idx + '" width="' + previewW + '" style="width:100%;border-radius:10px;border:1px solid rgba(210,210,215,.7);display:block;"></canvas>';
     html += '<div class="small" style="margin-top:8px;">';
     html += '<b style="color:#1D1D1F;">' + label + '</b><br/>';
-    html += '배치 병상: <b>' + bedEst + '개</b> &nbsp;|&nbsp; 공간 이용률: <b>' + areaScore + '%</b><br/>';
+    html += (opt.corridorStrategy && opt.corridorStrategy.startsWith('hospital_program:') ? '배치 모듈: <b>' + (opt.placedPrograms || 0) + '개</b> · 1칸 3.24㎡ 기준' : '배치 병상: <b>' + bedEst + '개</b>') + ' &nbsp;|&nbsp; 공간 이용률: <b>' + areaScore + '%</b><br/>';
     html += '<span style="color:#aaa;">corridorStrategy: ' + opt.corridorStrategy + '</span>';
     html += '</div></div>';
   });
@@ -1377,7 +1711,18 @@ function renderOptionPanel() {
   });
 }
 function generateLayoutOptions() {
-  const targetBeds = Math.max(2, Math.min(24, Number(document.getElementById('bedCount').value || 8)));
+  // 배치 모드는 상단 라디오로 명시 선택 (체크 여부로 추론하지 않음).
+  if (getPlacementMode() === 'hospital') {
+    const selectedHospitalProgramRequests = getSelectedHospitalProgramRequests();
+    if (selectedHospitalProgramRequests.length === 0) {
+      optionPanel.innerHTML = '<b>병원 진료 모듈 배치 모드</b><br/><span class="small">아래 체크리스트에서 배치할 실을 1개 이상 선택한 뒤 다시 생성하세요. (병실 병동을 배치하려면 배치 모드를 \"병동(병실)\"로 바꾸세요.)</span>';
+      return;
+    }
+    generateHospitalLayoutOptions(selectedHospitalProgramRequests);
+    return;
+  }
+  // 병동(병실) 모드: 그린 영역에 병실+전실+WC 병동을 배치한다.
+  const targetBeds = 99;
   const base = cloneGrid(grid);
   layoutOptions = [];
   const infeasibleReports = [];
@@ -1402,7 +1747,8 @@ function generateLayoutOptions() {
   if (layoutOptions.length === 0) {
     grid = cloneGrid(base);
     clusterGrid = blankClusterGrid();
-    draw();
+    renderHospitalProgramChecklist();
+draw();
     showInfeasibleLayoutWarning(infeasibleReports[0] || layoutFeasibilityReport(targetBeds));
     return;
   }
@@ -1415,8 +1761,32 @@ function selectLayoutOption(index) {
   selectedLayoutIndex = index;
   grid = cloneGrid(opt.grid);
   clusterGrid = cloneGrid(opt.clusterGrid);
+  moduleIdGrid = opt.moduleIdGrid ? cloneGrid(opt.moduleIdGrid) : blankClusterGrid();
   draw();
   checkWardRules();
+}
+function hospitalProgramRulesReport() {
+  // Hospital-side guideline checks (병원 모듈러 모드): placed-module summary + 수술부 지원 필수 점검.
+  const placedCells = {};
+  HOSPITAL_PROGRAMS.forEach(p => { const n = grid.flat().filter(v => v === moduleCodes[p.id]).length; if (n > 0) placedCells[p.id] = n; });
+  const ids = Object.keys(placedCells);
+  if (!ids.length) return {placed: false, lines: []};
+  const lines = [];
+  const summary = ids.map(id => {
+    const p = programById(id);
+    const size = (p && p.preferred_grid_size) || [HOSPITAL_BASE_MODULE_CELLS.w, HOSPITAL_BASE_MODULE_CELLS.h];
+    const inst = Math.max(1, Math.round(placedCells[id] / (size[0] * size[1])));
+    return (p ? p.name_ko : id) + ' ×' + inst;
+  });
+  lines.push('배치된 병원 모듈: ' + summary.join(', '));
+  const totalArea = ids.reduce((s, id) => s + placedCells[id], 0) * CELL_AREA_M2;
+  lines.push('병원 모듈 총 순면적: ' + totalArea.toFixed(1) + '㎡ (복도 제외)');
+  if (placedCells['operating_room']) {
+    for (const need of (HOSPITAL_PROGRAM_BUNDLES.operating_room || [])) {
+      if (!placedCells[need]) { const np = programById(need); lines.push('⚠ 수술실이 배치되었으나 ' + (np ? np.name_ko : need) + '이(가) 미배치 — 수술부 지원 필수 권장'); }
+    }
+  }
+  return {placed: true, lines};
 }
 function checkWardRules() {
   const checks = [];
@@ -1427,987 +1797,22 @@ function checkWardRules() {
   checks.push(corridorWidthPolicyReport());
   const score = layoutUtilizationScore();
   lastRuleReport = checks;
-  ruleReport.innerHTML = '<b>Rule Score</b><ul><li>buffer: ' + (checks[0].ok ? 'OK' : 'direct clean-infected contact') + '</li><li>' + checks[1].message + '</li><li>' + checks[2].message + '</li><li>' + checks[3].message + '</li><li>' + checks[4].message + '</li><li>areaFillScore: ' + score.areaFillScore.toFixed(2) + ', edgeFillScore: ' + score.edgeFillScore.toFixed(2) + '</li></ul>';
-}
-function clearGrid() { grid = blankGrid(); clusterGrid = blankClusterGrid(); layoutOptions = []; draw(); }
-function fillGrid() { grid = Array.from({length: rows}, () => Array(cols).fill(1)); clusterGrid = blankClusterGrid(); draw(); }
-function copyJson() { navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(grid)); }
-function downloadJson() {
-  const blob = new Blob([JSON.stringify(grid)], {type:'application/json'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'hospital_grid.json'; a.click();
-}
-function loadJsonFile(event) {
-  const file = event.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => { try { const g = JSON.parse(reader.result); if (isValidGrid(g)) { grid = g; clusterGrid = blankClusterGrid(); draw(); } } catch(e) { alert(e); } };
-  reader.readAsText(file);
-}
-function greedyRectangulateValue(valueGrid, targetValue) {
-  const used = Array.from({length: rows}, () => Array(cols).fill(false));
-  const rects = [];
-  for (let r=0; r<rows; r++) for (let c=0; c<cols; c++) {
-    if (used[r][c] || valueGrid[r][c] !== targetValue) continue;
-    let w = 1;
-    while (c + w < cols && !used[r][c + w] && valueGrid[r][c + w] === targetValue) w++;
-    let h = 1;
-    let canGrow = true;
-    while (r + h < rows && canGrow) {
-      for (let cc = c; cc < c + w; cc++) if (used[r + h][cc] || valueGrid[r + h][cc] !== targetValue) canGrow = false;
-      if (canGrow) h++;
-    }
-    for (let rr = r; rr < r + h; rr++) for (let cc = c; cc < c + w; cc++) used[rr][cc] = true;
-    rects.push({r:r, c:c, h:h, w:w, value:targetValue, clusterId:null});
-  }
-  return rects;
-}
-function rectangulateClusteredValue(valueGrid, targetValue, clusterSource = clusterGrid) {
-  // Ward suite masses must respect the same cluster outline as the 2D plan.
-  // Adjacent R/A/WC cells from different patient-suite clusters should not merge into one giant 3D block.
-  if (!isWardSuiteClusterValue(targetValue)) return greedyRectangulateValue(valueGrid, targetValue);
-  const used = Array.from({length: rows}, () => Array(cols).fill(false));
-  const rects = [];
-  const sameClusterValue = (r, c, clusterId) => valueGrid[r][c] === targetValue && (clusterSource[r] && clusterSource[r][c]) === clusterId;
-  for (let r=0; r<rows; r++) for (let c=0; c<cols; c++) {
-    const clusterId = clusterSource[r] && clusterSource[r][c];
-    if (used[r][c] || valueGrid[r][c] !== targetValue || !clusterId) continue;
-    let w = 1;
-    while (c + w < cols && !used[r][c + w] && sameClusterValue(r, c + w, clusterId)) w++;
-    let h = 1;
-    let canGrow = true;
-    while (r + h < rows && canGrow) {
-      for (let cc = c; cc < c + w; cc++) if (used[r + h][cc] || !sameClusterValue(r + h, cc, clusterId)) canGrow = false;
-      if (canGrow) h++;
-    }
-    for (let rr = r; rr < r + h; rr++) for (let cc = c; cc < c + w; cc++) used[rr][cc] = true;
-    rects.push({r:r, c:c, h:h, w:w, value:targetValue, clusterId:clusterId});
-  }
-  return rects;
-}
-function massHeightForValue(value) {
-  if (value === moduleCodes.controlled_corridor) return 0.03;
-  if ([moduleCodes.negative_pressure_patient_room, moduleCodes.anteroom, moduleCodes.ensuite_toilet_shower, moduleCodes.nurse_station, moduleCodes.clean_supply_alcove, moduleCodes.soiled_waste_holding].includes(value)) return ROOM_FLOOR_HEIGHT;
-  return 0.35;
-}
-function furnitureTemplateForMass(mass) {
-  if (mass.value === moduleCodes.negative_pressure_patient_room) return FURNITURE_LIBRARY.patient_room;
-  if (mass.value === moduleCodes.anteroom) return FURNITURE_LIBRARY.anteroom;
-  if (mass.value === moduleCodes.ensuite_toilet_shower) return FURNITURE_LIBRARY.wc;
-  if (mass.value === moduleCodes.nurse_station) return FURNITURE_LIBRARY.nurse_station;
-  if (mass.value === moduleCodes.clean_supply_alcove) return FURNITURE_LIBRARY.clean_supply;
-  if (mass.value === moduleCodes.soiled_waste_holding) return FURNITURE_LIBRARY.soiled_holding;
-  return [];
-}
-function furnitureSignatureForValue(value) {
-  const fakeMass = {value:value};
-  return furnitureTemplateForMass(fakeMass).map(item => item.type).join('+') || 'none';
-}
-function groundedFurnitureBaseForHeight(height, heightScale = 1) {
-  // Furniture base is locked to the same flat room floor plate as the room finish; visual sink/shadow are applied only at render time.
-  return FURNITURE_BASE_Z;
-}
-function furnitureVisualBaseZ(item) {
-  return FURNITURE_FLOOR_INTERSECT_Z;
-}
-function furnitureVisualHeight(item, heightScale = 1) {
-  return Math.max(FURNITURE_MIN_VISUAL_HEIGHT, item.h * heightScale * FURNITURE_HEIGHT_SCALE) + FURNITURE_SINK_Z;
-}
-function buildFurnitureFromMass(mass) {
-  // absSize:true → w/d는 절대 셀 단위(중심 기준 배치), x/y는 여전히 0-1 비율로 중심 위치 지정
-  // absSize 없음 → 기존 방식(비율 곱)
-  // base is locked to the same flat room floor plate; never float furniture above the shared datum.
-  return furnitureTemplateForMass(mass).map(item => {
-    const iw = item.absSize ? item.w : Math.max(0.18, item.w * mass.w);
-    const id = item.absSize ? item.d : Math.max(0.18, item.d * mass.d);
-    const ix = item.absSize
-      ? mass.x + item.x * mass.w - iw / 2
-      : mass.x + item.x * mass.w;
-    const iy = item.absSize
-      ? mass.y + item.y * mass.d - id / 2
-      : mass.y + item.y * mass.d;
-    return ({
-    type: item.type,
-    label: item.label,
-    x: ix,
-    y: iy,
-    w: iw,
-    d: id,
-    h: item.h,
-    baseZ: groundedFurnitureBaseForHeight(item.h),
-    color: item.color,
-    clusterId: mass.clusterId,
-    furnitureSignature: mass.furnitureSignature
-  });});
-}
-function build3DMassesFromGrid(valueGrid = grid, clusterSource = clusterGrid) {
-  const values = [moduleCodes.controlled_corridor, moduleCodes.negative_pressure_patient_room, moduleCodes.anteroom, moduleCodes.ensuite_toilet_shower, moduleCodes.nurse_station, moduleCodes.clean_supply_alcove, moduleCodes.soiled_waste_holding];
-  const masses = [];
-  for (const value of values) {
-    for (const rect of rectangulateClusteredValue(valueGrid, value, clusterSource)) {
-      // baseZ: GROUND_Z keeps every mass on the same flat room floor plate, while walls/furniture add only readable height cues.
-      masses.push({x: rect.c, y: rect.r, w: rect.w, d: rect.h, h: massHeightForValue(value), baseZ: GROUND_Z, value: value, color: colorFor(value), label: labelFor(value), clusterId: rect.clusterId, furnitureSignature: furnitureSignatureForValue(value)});
-    }
-  }
-  return masses;
-}
-function shadeHex(hex, factor) {
-  const raw = String(hex || '#999999').replace('#','');
-  const n = parseInt(raw.length === 3 ? raw.split('').map(ch => ch + ch).join('') : raw, 16);
-  const r = Math.max(0, Math.min(255, Math.round(((n>>16)&255) * factor)));
-  const g = Math.max(0, Math.min(255, Math.round(((n>>8)&255) * factor)));
-  const b = Math.max(0, Math.min(255, Math.round((n&255) * factor)));
-  return '#' + [r,g,b].map(v => v.toString(16).padStart(2,'0')).join('');
-}
-function project3DPoint(x, y, z, scale, offsetX, offsetY) {
-  const cos = Math.cos(threeDRotation.z), sin = Math.sin(threeDRotation.z);
-  const xr = (x - cols/2) * cos - (y - rows/2) * sin;
-  const yr = (x - cols/2) * sin + (y - rows/2) * cos;
-  const pitch = threeDRotation.x;
-  const yp = yr * Math.cos(pitch) - z * Math.sin(pitch);
-  return {x: offsetX + xr * scale, y: offsetY + yp * scale};
-}
-function polygon(points, fill, stroke) {
-  threeDCtx.beginPath();
-  threeDCtx.moveTo(points[0].x, points[0].y);
-  for (let i=1; i<points.length; i++) threeDCtx.lineTo(points[i].x, points[i].y);
-  threeDCtx.closePath();
-  threeDCtx.fillStyle = fill;
-  threeDCtx.fill();
-  threeDCtx.strokeStyle = stroke || '#374151';
-  threeDCtx.lineWidth = 0.7;
-  threeDCtx.stroke();
-}
-function drawGroundFloor(valueGrid, scale, offsetX, offsetY) {
-  // ground floor plane: a single shared floor datum gives the 3D masses a visible base so rooms do not appear to float or sit on different floor levels.
-  const b = usableBounds();
-  if (!b) return;
-  const x0 = b.minC, x1 = b.maxC + 1, y0 = b.minR, y1 = b.maxR + 1;
-  const p00 = project3DPoint(x0, y0, FLOOR_PLANE_Z, scale, offsetX, offsetY);
-  const p10 = project3DPoint(x1, y0, FLOOR_PLANE_Z, scale, offsetX, offsetY);
-  const p11 = project3DPoint(x1, y1, FLOOR_PLANE_Z, scale, offsetX, offsetY);
-  const p01 = project3DPoint(x0, y1, FLOOR_PLANE_Z, scale, offsetX, offsetY);
-  polygon([p00, p10, p11, p01], '#e5e7eb', '#9ca3af');
-  threeDCtx.save();
-  threeDCtx.strokeStyle = 'rgba(107,114,128,0.18)';
-  threeDCtx.lineWidth = 0.45;
-  for (let c = b.minC; c <= b.maxC + 1; c += 2) {
-    const a = project3DPoint(c, b.minR, FLOOR_PLANE_Z + 0.01, scale, offsetX, offsetY);
-    const d = project3DPoint(c, b.maxR + 1, FLOOR_PLANE_Z + 0.01, scale, offsetX, offsetY);
-    threeDCtx.beginPath(); threeDCtx.moveTo(a.x, a.y); threeDCtx.lineTo(d.x, d.y); threeDCtx.stroke();
-  }
-  for (let r = b.minR; r <= b.maxR + 1; r += 2) {
-    const a = project3DPoint(b.minC, r, FLOOR_PLANE_Z + 0.01, scale, offsetX, offsetY);
-    const d = project3DPoint(b.maxC + 1, r, FLOOR_PLANE_Z + 0.01, scale, offsetX, offsetY);
-    threeDCtx.beginPath(); threeDCtx.moveTo(a.x, a.y); threeDCtx.lineTo(d.x, d.y); threeDCtx.stroke();
-  }
-  threeDCtx.restore();
-}
-function drawMassBox(mass, scale, offsetX, offsetY) {
-  const x0 = mass.x, x1 = mass.x + mass.w, y0 = mass.y, y1 = mass.y + mass.d;
-  const z0 = mass.baseZ;
-  const z1 = mass.baseZ + mass.h * Z_HEIGHT_SCALE;
-  const p000 = project3DPoint(x0,y0,z0,scale,offsetX,offsetY), p100 = project3DPoint(x1,y0,z0,scale,offsetX,offsetY), p110 = project3DPoint(x1,y1,z0,scale,offsetX,offsetY), p010 = project3DPoint(x0,y1,z0,scale,offsetX,offsetY);
-  const p001 = project3DPoint(x0,y0,z1,scale,offsetX,offsetY), p101 = project3DPoint(x1,y0,z1,scale,offsetX,offsetY), p111 = project3DPoint(x1,y1,z1,scale,offsetX,offsetY), p011 = project3DPoint(x0,y1,z1,scale,offsetX,offsetY);
-  polygon([p000,p100,p101,p001], shadeHex(mass.color, 0.82));
-  polygon([p100,p110,p111,p101], shadeHex(mass.color, 0.68));
-  polygon([p010,p110,p111,p011], shadeHex(mass.color, 0.74));
-  polygon([p001,p101,p111,p011], mass.color);
-  if (mass.w * mass.d >= 4) {
-    const center = project3DPoint((x0+x1)/2, (y0+y1)/2, z1 + 0.25, scale, offsetX, offsetY);
-    threeDCtx.fillStyle = '#111827';
-    threeDCtx.font = '10px sans-serif';
-    threeDCtx.textAlign = 'center';
-    threeDCtx.fillText(mass.label, center.x, center.y);
-  }
-}
-function drawRoomFloorPlate(mass, scale, offsetX, offsetY) {
-  // Draw rooms/corridors as flat finish plates, not raised mass boxes. This prevents the 'furniture pasted on top of grey blocks' look.
-  const x0 = mass.x, x1 = mass.x + mass.w, y0 = mass.y, y1 = mass.y + mass.d;
-  const z = FINISHED_FLOOR_Z;
-  const p00 = project3DPoint(x0,y0,z,scale,offsetX,offsetY);
-  const p10 = project3DPoint(x1,y0,z,scale,offsetX,offsetY);
-  const p11 = project3DPoint(x1,y1,z,scale,offsetX,offsetY);
-  const p01 = project3DPoint(x0,y1,z,scale,offsetX,offsetY);
-  polygon([p00,p10,p11,p01], shadeHex(mass.color, mass.value === moduleCodes.controlled_corridor ? 0.96 : 1.04), 'rgba(51,65,85,0.35)');
-  if (mass.w * mass.d >= 4) {
-    const center = project3DPoint((x0+x1)/2, (y0+y1)/2, z + 0.012, scale, offsetX, offsetY);
-    threeDCtx.fillStyle = 'rgba(17,24,39,0.62)';
-    threeDCtx.font = '10px sans-serif';
-    threeDCtx.textAlign = 'center';
-    threeDCtx.fillText(mass.label, center.x, center.y);
-  }
-}
-function furnitureZ(item) { return item.baseZ; }
-function furnitureCorners(item, z, scale, offsetX, offsetY, inset = 0) {
-  const x0 = item.x + inset * item.w, x1 = item.x + item.w - inset * item.w;
-  const y0 = item.y + inset * item.d, y1 = item.y + item.d - inset * item.d;
-  return {
-    p00: project3DPoint(x0,y0,z,scale,offsetX,offsetY),
-    p10: project3DPoint(x1,y0,z,scale,offsetX,offsetY),
-    p11: project3DPoint(x1,y1,z,scale,offsetX,offsetY),
-    p01: project3DPoint(x0,y1,z,scale,offsetX,offsetY)
-  };
-}
-function drawFurnitureContactShadow(item, scale, offsetX, offsetY) {
-  // Contact shadow at the finished floor surface makes equipment read as sitting on the slab, even with the isometric projection.
-  const c = furnitureCorners(item, FURNITURE_GROUND_SHADOW_Z, scale, offsetX, offsetY, -0.055);
-  polygon([c.p00,c.p10,c.p11,c.p01], 'rgba(15,23,42,0.24)', 'rgba(15,23,42,0.04)');
-}
-function drawFurnitureVolume(item, scale, offsetX, offsetY, fill = item.color, heightScale = 1) {
-  // Custom low 3D equipment volume: no generic room-box renderer, no flat footprint. Furniture visually intersects the finished floor by a tiny amount, removing hover gaps from the isometric projection.
-  const z0 = furnitureVisualBaseZ(item);
-  const z1 = z0 + furnitureVisualHeight(item, heightScale);
-  const b = furnitureCorners(item, z0, scale, offsetX, offsetY, 0);
-  const t = furnitureCorners(item, z1, scale, offsetX, offsetY, 0.025);
-  polygon([b.p00,b.p10,t.p10,t.p00], shadeHex(fill, 0.84), 'rgba(15,23,42,0.58)');
-  polygon([b.p10,b.p11,t.p11,t.p10], shadeHex(fill, 0.70), 'rgba(15,23,42,0.52)');
-  polygon([b.p01,b.p11,t.p11,t.p01], shadeHex(fill, 0.76), 'rgba(15,23,42,0.44)');
-  polygon([t.p00,t.p10,t.p11,t.p01], fill, 'rgba(15,23,42,0.72)');
-}
-function drawFurnitureTopDetail(item, scale, offsetX, offsetY, inset = 0.14, fill = 'rgba(255,255,255,0.55)', stroke = 'rgba(51,65,85,0.35)') {
-  const z = furnitureVisualBaseZ(item) + furnitureVisualHeight(item) + 0.012;
-  const c = furnitureCorners(item, z, scale, offsetX, offsetY, inset);
-  polygon([c.p00,c.p10,c.p11,c.p01], fill, stroke);
-}
-function childFurniture(item, rel, overrides = {}) {
-  return {
-    ...item,
-    ...overrides,
-    x: item.x + rel.x * item.w,
-    y: item.y + rel.y * item.d,
-    w: rel.w * item.w,
-    d: rel.d * item.d,
-    h: overrides.h !== undefined ? overrides.h : item.h,
-    baseZ: overrides.baseZ !== undefined ? overrides.baseZ : groundedFurnitureBaseForHeight(overrides.h !== undefined ? overrides.h : item.h, overrides.heightScale || 1)
-  };
-}
-function drawScreenEllipseAt(x, y, z, rx, ry, scale, offsetX, offsetY, fill, stroke) {
-  const center = project3DPoint(x, y, z, scale, offsetX, offsetY);
-  threeDCtx.save();
-  threeDCtx.fillStyle = fill;
-  threeDCtx.strokeStyle = stroke;
-  threeDCtx.lineWidth = 0.9;
-  threeDCtx.beginPath();
-  threeDCtx.ellipse(center.x, center.y, Math.max(3, rx * scale), Math.max(2, ry * scale), 0, 0, Math.PI * 2);
-  threeDCtx.fill(); threeDCtx.stroke();
-  threeDCtx.restore();
-}
-function drawFurnitureEdgeLine(item, scale, offsetX, offsetY, inset = 0.06, zLift = 0.014, stroke = 'rgba(15,23,42,0.50)') {
-  const z = furnitureVisualBaseZ(item) + furnitureVisualHeight(item) + zLift;
-  const c = furnitureCorners(item, z, scale, offsetX, offsetY, inset);
-  threeDCtx.save();
-  threeDCtx.strokeStyle = stroke;
-  threeDCtx.lineWidth = 0.85;
-  threeDCtx.beginPath();
-  threeDCtx.moveTo(c.p00.x, c.p00.y);
-  threeDCtx.lineTo(c.p10.x, c.p10.y);
-  threeDCtx.lineTo(c.p11.x, c.p11.y);
-  threeDCtx.lineTo(c.p01.x, c.p01.y);
-  threeDCtx.closePath();
-  threeDCtx.stroke();
-  threeDCtx.restore();
-}
-function projectedItemMetrics(item, z, scale, offsetX, offsetY) {
-  const center = project3DPoint(item.x + item.w / 2, item.y + item.d / 2, z, scale, offsetX, offsetY);
-  const xA = project3DPoint(item.x, item.y + item.d / 2, z, scale, offsetX, offsetY);
-  const xB = project3DPoint(item.x + item.w, item.y + item.d / 2, z, scale, offsetX, offsetY);
-  const yA = project3DPoint(item.x + item.w / 2, item.y, z, scale, offsetX, offsetY);
-  const yB = project3DPoint(item.x + item.w / 2, item.y + item.d, z, scale, offsetX, offsetY);
-  return {center, rx: Math.max(2.6, Math.hypot(xA.x - xB.x, xA.y - xB.y) / 2), ry: Math.max(2.1, Math.hypot(yA.x - yB.x, yA.y - yB.y) / 2)};
-}
-function drawIsoEllipseCap(item, scale, offsetX, offsetY, fill, stroke = 'rgba(15,23,42,0.58)', heightScale = 1, zLift = 0.012, rxScale = 0.94, ryScale = 0.62) {
-  const z = furnitureVisualBaseZ(item) + furnitureVisualHeight(item, heightScale) + zLift;
-  const m = projectedItemMetrics(item, z, scale, offsetX, offsetY);
-  threeDCtx.save();
-  threeDCtx.fillStyle = fill;
-  threeDCtx.strokeStyle = stroke;
-  threeDCtx.lineWidth = 0.95;
-  threeDCtx.beginPath();
-  threeDCtx.ellipse(m.center.x, m.center.y, m.rx * rxScale, m.ry * ryScale, -0.18, 0, Math.PI * 2);
-  threeDCtx.fill();
-  threeDCtx.stroke();
-  threeDCtx.restore();
-}
-function drawRoundedProjectedTop(item, scale, offsetX, offsetY, fill, stroke = 'rgba(15,23,42,0.58)', heightScale = 1, inset = 0.035) {
-  const z = furnitureVisualBaseZ(item) + furnitureVisualHeight(item, heightScale) + 0.018;
-  const c = furnitureCorners(item, z, scale, offsetX, offsetY, inset);
-  const cx = (c.p00.x + c.p10.x + c.p11.x + c.p01.x) / 4;
-  const cy = (c.p00.y + c.p10.y + c.p11.y + c.p01.y) / 4;
-  threeDCtx.save();
-  threeDCtx.fillStyle = fill;
-  threeDCtx.strokeStyle = stroke;
-  threeDCtx.lineWidth = 0.95;
-  threeDCtx.beginPath();
-  threeDCtx.moveTo((c.p00.x + c.p10.x) / 2, (c.p00.y + c.p10.y) / 2);
-  threeDCtx.quadraticCurveTo(c.p10.x, c.p10.y, (c.p10.x + c.p11.x) / 2, (c.p10.y + c.p11.y) / 2);
-  threeDCtx.quadraticCurveTo(c.p11.x, c.p11.y, (c.p11.x + c.p01.x) / 2, (c.p11.y + c.p01.y) / 2);
-  threeDCtx.quadraticCurveTo(c.p01.x, c.p01.y, (c.p01.x + c.p00.x) / 2, (c.p01.y + c.p00.y) / 2);
-  threeDCtx.quadraticCurveTo(c.p00.x, c.p00.y, (c.p00.x + c.p10.x) / 2, (c.p00.y + c.p10.y) / 2);
-  threeDCtx.closePath();
-  threeDCtx.fill();
-  threeDCtx.stroke();
-  threeDCtx.fillStyle = 'rgba(255,255,255,0.35)';
-  threeDCtx.beginPath();
-  threeDCtx.ellipse(cx, cy - 1.5, Math.max(2.5, Math.abs(c.p10.x - c.p00.x) * 0.16), Math.max(1.4, Math.abs(c.p11.y - c.p10.y) * 0.10), -0.2, 0, Math.PI * 2);
-  threeDCtx.fill();
-  threeDCtx.restore();
-}
-function drawCylinderFixture(item, scale, offsetX, offsetY, fill, stroke = 'rgba(15,23,42,0.58)', heightScale = 1, rxScale = 0.82, ryScale = 0.62) {
-  drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  const body = childFurniture(item, {x:0.10, y:0.12, w:0.80, d:0.76}, {h:item.h, color:fill});
-  drawFurnitureVolume(body, scale, offsetX, offsetY, fill, heightScale * 0.58);
-  drawIsoEllipseCap(body, scale, offsetX, offsetY, shadeHex(fill, 1.08), stroke, heightScale * 0.58, 0.016, rxScale, ryScale);
-}
-function drawFurnitureLabel(item, scale, offsetX, offsetY, text = item.label) {
-  if (!text) return;
-  const p = project3DPoint(item.x + item.w / 2, item.y + item.d / 2, furnitureVisualBaseZ(item) + furnitureVisualHeight(item) + 0.035, scale, offsetX, offsetY);
-  threeDCtx.save();
-  threeDCtx.fillStyle = 'rgba(15,23,42,0.66)';
-  threeDCtx.font = '8px sans-serif';
-  threeDCtx.textAlign = 'center';
-  threeDCtx.fillText(text, p.x, p.y + 2);
-  threeDCtx.restore();
-}
-function drawPatientBed(item, scale, offsetX, offsetY) {
-  drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  // 프레임
-  drawFurnitureVolume(item, scale, offsetX, offsetY, '#64748b', 0.55);
-  // 매트리스
-  const mattress = childFurniture(item, {x:0.06, y:0.06, w:0.88, d:0.80}, {h:0.12, color:'#e0f2fe'});
-  drawFurnitureVolume(mattress, scale, offsetX, offsetY, '#e0f2fe', 1.10);
-  drawRoundedProjectedTop(mattress, scale, offsetX, offsetY, 'rgba(240,249,255,0.92)', 'rgba(14,116,144,0.36)', 1.10, 0.08);
-  drawFurnitureTopDetail(mattress, scale, offsetX, offsetY, 0.06, 'rgba(255,255,255,0.7)', 'rgba(51,65,85,0.3)');
-  // 베개 (머리쪽 = y 큰 방향)
-  const pillow = childFurniture(item, {x:0.16, y:0.72, w:0.68, d:0.16}, {h:0.06, color:'#ffffff'});
-  drawFurnitureVolume(pillow, scale, offsetX, offsetY, '#ffffff', 0.80);
-  drawIsoEllipseCap(pillow, scale, offsetX, offsetY, 'rgba(255,255,255,0.96)', 'rgba(148,163,184,0.42)', 0.80, 0.012, 0.88, 0.78);
-  // 헤드보드
-  const hb = childFurniture(item, {x:0.03, y:0.90, w:0.94, d:0.06}, {h:0.22, color:'#334155'});
-  drawFurnitureVolume(hb, scale, offsetX, offsetY, '#334155', 1.20);
-  // 사이드레일
-  const railLeft = childFurniture(item, {x:0.02, y:0.12, w:0.04, d:0.62}, {h:0.08, color:'#94a3b8'});
-  const railRight = childFurniture(item, {x:0.94, y:0.12, w:0.04, d:0.62}, {h:0.08, color:'#94a3b8'});
-  drawFurnitureVolume(railLeft, scale, offsetX, offsetY, '#94a3b8', 0.75);
-  drawFurnitureVolume(railRight, scale, offsetX, offsetY, '#94a3b8', 0.75);
-}
-function drawHeadwall(item, scale, offsetX, offsetY) {
-  drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  drawFurnitureVolume(item, scale, offsetX, offsetY, '#bfdbfe', 0.95);
-  drawFurnitureEdgeLine(item, scale, offsetX, offsetY, 0.10, 0.018, 'rgba(37,99,235,0.56)');
-}
-function drawToiletFixture(item, scale, offsetX, offsetY) {
-  drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  const plinth = childFurniture(item, {x:0.08, y:0.20, w:0.84, d:0.74}, {h:0.05, color:'#e2e8f0'});
-  drawFurnitureVolume(plinth, scale, offsetX, offsetY, '#e2e8f0', 0.42);
-  // 변기 본체
-  const bowl = childFurniture(item, {x:0.10, y:0.22, w:0.80, d:0.70}, {h:0.12, color:'#ffffff'});
-  drawCylinderFixture(bowl, scale, offsetX, offsetY, '#ffffff', 'rgba(2,132,199,0.40)', 0.82, 0.78, 0.62);
-  drawIsoEllipseCap(bowl, scale, offsetX, offsetY, '#bae6fd', 'rgba(2,132,199,0.5)', 0.82, 0.020, 0.54, 0.38);
-  drawFurnitureTopDetail(bowl, scale, offsetX, offsetY, 0.12, '#bae6fd', 'rgba(2,132,199,0.5)');
-  // 시트 테두리
-  const rim = childFurniture(item, {x:0.12, y:0.24, w:0.76, d:0.66}, {h:0.02, color:'#0f172a'});
-  drawFurnitureVolume(rim, scale, offsetX, offsetY, '#0f172a', 0.30);
-  // 물탱크
-  const tank = childFurniture(item, {x:0.14, y:0.02, w:0.72, d:0.20}, {h:0.18, color:'#e2e8f0'});
-  drawFurnitureVolume(tank, scale, offsetX, offsetY, '#e2e8f0', 1.0);
-}
-function drawShowerZone(item, scale, offsetX, offsetY) {
-  drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  // 트레이 바닥
-  drawFurnitureVolume(item, scale, offsetX, offsetY, '#bfdbfe', 0.22);
-  drawFurnitureTopDetail(item, scale, offsetX, offsetY, 0.08, 'rgba(224,242,254,0.80)', 'rgba(2,132,199,0.45)');
-  // 앞면 스크린
-  const screen = childFurniture(item, {x:0.02, y:0.0, w:0.96, d:0.05}, {h:0.22, color:'#93c5fd'});
-  drawFurnitureVolume(screen, scale, offsetX, offsetY, '#93c5fd', 1.0);
-  // 샤워 헤드 폴
-  const pole = childFurniture(item, {x:0.80, y:0.12, w:0.06, d:0.06}, {h:0.46, color:'#2563eb'});
-  drawFurnitureVolume(pole, scale, offsetX, offsetY, '#2563eb', 1.0);
-}
-function drawWashbasin(item, scale, offsetX, offsetY) {
-  drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  // 브래킷
-  const bracket = childFurniture(item, {x:0.06, y:0.02, w:0.88, d:0.14}, {h:0.14, color:'#94a3b8'});
-  drawFurnitureVolume(bracket, scale, offsetX, offsetY, '#94a3b8', 0.85);
-  // 세면대 본체
-  const basin = childFurniture(item, {x:0.06, y:0.18, w:0.88, d:0.72}, {h:0.10, color:'#e0f2fe'});
-  drawFurnitureVolume(basin, scale, offsetX, offsetY, '#e0f2fe', 1.0);
-  drawFurnitureTopDetail(basin, scale, offsetX, offsetY, 0.14, '#bae6fd', 'rgba(14,116,144,0.5)');
-  // 수전
-  const faucet = childFurniture(item, {x:0.44, y:0.20, w:0.12, d:0.10}, {h:0.16, color:'#334155'});
-  drawFurnitureVolume(faucet, scale, offsetX, offsetY, '#334155', 1.0);
-}
-function drawBench(item, scale, offsetX, offsetY) {
-  drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  drawFurnitureVolume(item, scale, offsetX, offsetY, item.color || '#fde68a', 0.72);
-  const legA = childFurniture(item, {x:0.12, y:0.18, w:0.08, d:0.64}, {h:0.055, color:'#d97706'});
-  const legB = childFurniture(item, {x:0.80, y:0.18, w:0.08, d:0.64}, {h:0.055, color:'#d97706'});
-  drawFurnitureVolume(legA, scale, offsetX, offsetY, '#d97706', 0.55);
-  drawFurnitureVolume(legB, scale, offsetX, offsetY, '#d97706', 0.55);
-}
-function drawCabinetOrShelving(item, scale, offsetX, offsetY) {
-  drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  drawFurnitureVolume(item, scale, offsetX, offsetY, item.color || '#dcfce7', 1.10);
-  drawFurnitureEdgeLine(item, scale, offsetX, offsetY, 0.08, 0.018, 'rgba(22,101,52,0.52)');
-  drawFurnitureLabel(item, scale, offsetX, offsetY, item.type === 'supply_shelving' ? 'shelf' : 'cab');
-}
-function drawNurseCounter(item, scale, offsetX, offsetY) {
-  // L-shaped reception counter with rounded projected tops; still grounded 3D, but less like two plain boxes.
-  const counter = childFurniture(item, {x:0.02, y:0.10, w:0.82, d:0.34}, {h:item.h, color:'#ccfbf1'});
-  const returnWing = childFurniture(item, {x:0.55, y:0.38, w:0.34, d:0.48}, {h:item.h, color:'#99f6e4'});
-  drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  drawFurnitureVolume(counter, scale, offsetX, offsetY, '#ccfbf1', 0.82);
-  drawRoundedProjectedTop(counter, scale, offsetX, offsetY, 'rgba(240,253,250,0.94)', 'rgba(13,148,136,0.58)', 0.90, 0.07);
-  drawFurnitureVolume(returnWing, scale, offsetX, offsetY, '#99f6e4', 0.80);
-  drawRoundedProjectedTop(returnWing, scale, offsetX, offsetY, 'rgba(204,251,241,0.92)', 'rgba(15,118,110,0.52)', 0.88, 0.07);
-}
-function drawWorkstation(item, scale, offsetX, offsetY) {
-  drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  drawFurnitureVolume(item, scale, offsetX, offsetY, '#99f6e4', 0.78);
-  const monitor = childFurniture(item, {x:0.28, y:0.08, w:0.44, d:0.18}, {h:0.10, color:'#334155'});
-  drawFurnitureVolume(monitor, scale, offsetX, offsetY, '#334155', 0.80);
-}
-function drawTrolleyOrBin(item, scale, offsetX, offsetY) {
-  if (item.type === 'waste_bin') return drawCylinderFixture(item, scale, offsetX, offsetY, item.color, 'rgba(127,29,29,0.50)', 0.82, 0.82, 0.66);
-  drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  drawFurnitureVolume(item, scale, offsetX, offsetY, item.color, 0.74);
-  drawRoundedProjectedTop(item, scale, offsetX, offsetY, 'rgba(255,255,255,0.36)', 'rgba(51,65,85,0.42)', 0.68, 0.12);
-}
-function drawGenericFurnitureVolume(item, scale, offsetX, offsetY) {
-  drawFurnitureContactShadow(item, scale, offsetX, offsetY);
-  drawFurnitureVolume(item, scale, offsetX, offsetY, item.color, 0.86);
-  drawFurnitureTopDetail(item, scale, offsetX, offsetY);
-}
-function drawFurnitureItem(item, scale, offsetX, offsetY) {
-  if (item.type === 'patient_bed') return drawPatientBed(item, scale, offsetX, offsetY);
-  if (item.type === 'headwall') return drawHeadwall(item, scale, offsetX, offsetY);
-  if (item.type === 'toilet_fixture') return drawToiletFixture(item, scale, offsetX, offsetY);
-  if (item.type === 'shower_zone') return drawShowerZone(item, scale, offsetX, offsetY);
-  if (item.type === 'washbasin' || item.type === 'handwash_sink') return drawWashbasin(item, scale, offsetX, offsetY);
-  if (item.type === 'ppe_bench') return drawBench(item, scale, offsetX, offsetY);
-  if (item.type === 'donning_cabinet' || item.type === 'supply_shelving') return drawCabinetOrShelving(item, scale, offsetX, offsetY);
-  if (item.type === 'nurse_counter') return drawNurseCounter(item, scale, offsetX, offsetY);
-  if (item.type === 'workstation') return drawWorkstation(item, scale, offsetX, offsetY);
-  if (item.type === 'meds_trolley' || item.type === 'waste_bin' || item.type === 'medical_cart') return drawTrolleyOrBin(item, scale, offsetX, offsetY);
-  return drawGenericFurnitureVolume(item, scale, offsetX, offsetY);
-}
-function buildWallSegmentsFromMass(mass) {
-  if (mass.value === moduleCodes.controlled_corridor) return [];
-  const t = Math.min(WALL_THICKNESS, Math.max(0.045, Math.min(mass.w, mass.d) * 0.08));
-  return [
-    {x: mass.x, y: mass.y, w: mass.w, d: t, h: WALL_HEIGHT, baseZ: GROUND_Z, color:'#f8fafc', label:'wall', sourceCluster: mass.clusterId},
-    {x: mass.x, y: mass.y + mass.d - t, w: mass.w, d: t, h: WALL_HEIGHT, baseZ: GROUND_Z, color:'#e5e7eb', label:'wall', sourceCluster: mass.clusterId},
-    {x: mass.x, y: mass.y, w: t, d: mass.d, h: WALL_HEIGHT, baseZ: GROUND_Z, color:'#f1f5f9', label:'wall', sourceCluster: mass.clusterId},
-    {x: mass.x + mass.w - t, y: mass.y, w: t, d: mass.d, h: WALL_HEIGHT, baseZ: GROUND_Z, color:'#cbd5e1', label:'wall', sourceCluster: mass.clusterId}
-  ];
-}
-function drawWallSegment(segment, scale, offsetX, offsetY) {
-  // Visible cutaway wall panel: enough vertical surface to read the room boundary, but not a solid room box.
-  drawCutawayWallPanel(segment, scale, offsetX, offsetY);
-  drawCutawayWallLine(segment, scale, offsetX, offsetY);
-}
-function drawCutawayWallPanel(segment, scale, offsetX, offsetY) {
-  const x0 = segment.x, x1 = segment.x + segment.w, y0 = segment.y, y1 = segment.y + segment.d;
-  const horizontal = segment.w >= segment.d;
-  const z0 = FINISHED_FLOOR_Z + 0.01;
-  const z1 = GROUND_Z + WALL_HEIGHT;
-  const a0 = horizontal ? project3DPoint(x0, (y0 + y1) / 2, z0, scale, offsetX, offsetY) : project3DPoint((x0 + x1) / 2, y0, z0, scale, offsetX, offsetY);
-  const b0 = horizontal ? project3DPoint(x1, (y0 + y1) / 2, z0, scale, offsetX, offsetY) : project3DPoint((x0 + x1) / 2, y1, z0, scale, offsetX, offsetY);
-  const a1 = horizontal ? project3DPoint(x0, (y0 + y1) / 2, z1, scale, offsetX, offsetY) : project3DPoint((x0 + x1) / 2, y0, z1, scale, offsetX, offsetY);
-  const b1 = horizontal ? project3DPoint(x1, (y0 + y1) / 2, z1, scale, offsetX, offsetY) : project3DPoint((x0 + x1) / 2, y1, z1, scale, offsetX, offsetY);
-  polygon([a0, b0, b1, a1], 'rgba(148,163,184,0.18)', 'rgba(71,85,105,0.44)');
-}
-function drawCutawayWallLine(segment, scale, offsetX, offsetY) {
-  const x0 = segment.x, x1 = segment.x + segment.w, y0 = segment.y, y1 = segment.y + segment.d;
-  const horizontal = segment.w >= segment.d;
-  const a = horizontal ? project3DPoint(x0, (y0 + y1) / 2, GROUND_Z + WALL_HEIGHT, scale, offsetX, offsetY) : project3DPoint((x0 + x1) / 2, y0, GROUND_Z + WALL_HEIGHT, scale, offsetX, offsetY);
-  const b = horizontal ? project3DPoint(x1, (y0 + y1) / 2, GROUND_Z + WALL_HEIGHT, scale, offsetX, offsetY) : project3DPoint((x0 + x1) / 2, y1, GROUND_Z + WALL_HEIGHT, scale, offsetX, offsetY);
-  threeDCtx.save();
-  threeDCtx.setLineDash([2.5, 2.5]);
-  threeDCtx.strokeStyle = 'rgba(51,65,85,0.70)';
-  threeDCtx.lineWidth = 1.25;
-  threeDCtx.beginPath(); threeDCtx.moveTo(a.x, a.y); threeDCtx.lineTo(b.x, b.y); threeDCtx.stroke();
-  threeDCtx.restore();
-}
-function drawDoorSwing(mass, scale, offsetX, offsetY) {
-  if (![moduleCodes.negative_pressure_patient_room, moduleCodes.anteroom, moduleCodes.ensuite_toilet_shower, moduleCodes.nurse_station].includes(mass.value)) return;
-  const z = GROUND_Z + 0.16;
-  const hinge = project3DPoint(mass.x + 0.12 * mass.w, mass.y, z, scale, offsetX, offsetY);
-  const jamb = project3DPoint(mass.x + 0.44 * mass.w, mass.y, z, scale, offsetX, offsetY);
-  const open = project3DPoint(mass.x + 0.12 * mass.w, mass.y + Math.min(0.42 * mass.d, 0.9), z, scale, offsetX, offsetY);
-  threeDCtx.save();
-  threeDCtx.strokeStyle = 'rgba(17,24,39,0.55)';
-  threeDCtx.lineWidth = 1;
-  threeDCtx.beginPath(); threeDCtx.moveTo(hinge.x, hinge.y); threeDCtx.lineTo(jamb.x, jamb.y); threeDCtx.lineTo(open.x, open.y); threeDCtx.stroke();
-  threeDCtx.restore();
-}
-function drawTransparentPartition(mass, scale, offsetX, offsetY) {
-  if (![moduleCodes.negative_pressure_patient_room, moduleCodes.anteroom, moduleCodes.nurse_station].includes(mass.value)) return;
-  const z = GROUND_Z + 0.34;
-  const a = project3DPoint(mass.x, mass.y + 0.06 * mass.d, z, scale, offsetX, offsetY);
-  const b = project3DPoint(mass.x + mass.w, mass.y + 0.06 * mass.d, z, scale, offsetX, offsetY);
-  threeDCtx.save();
-  threeDCtx.strokeStyle = 'rgba(14,165,233,0.42)';
-  threeDCtx.lineWidth = 1.3;
-  threeDCtx.setLineDash([3, 3]);
-  threeDCtx.beginPath(); threeDCtx.moveTo(a.x, a.y); threeDCtx.lineTo(b.x, b.y); threeDCtx.stroke();
-  threeDCtx.restore();
-}
-function drawFurnitureLegend(furnitureCount) {
-  threeDCtx.save();
-  const x = 12, y = 34;
-  threeDCtx.fillStyle = 'rgba(255,255,255,0.88)';
-  threeDCtx.strokeStyle = '#cbd5e1';
-  threeDCtx.fillRect(x, y, 352, 52);
-  threeDCtx.strokeRect(x, y, 352, 52);
-  threeDCtx.fillStyle = '#334155';
-  threeDCtx.font = '11px sans-serif';
-  threeDCtx.textAlign = 'left';
-  threeDCtx.fillText('Architectural 3D: repeated furniture kits per module type', x + 10, y + 18);
-  threeDCtx.fillText('bed / PPE / WC / nurse counter / supply shelving / waste bins: ' + furnitureCount + ' items', x + 10, y + 36);
-  threeDCtx.restore();
-}
-function drawArchitecturalCues(mass, scale, offsetX, offsetY) {
-  drawTransparentPartition(mass, scale, offsetX, offsetY);
-  drawDoorSwing(mass, scale, offsetX, offsetY);
-}
-let threeRenderer = null;
-let threeScene = null;
-let threeCamera = null;
-let threeRoot = null;
-let gltfLoaderInstance = null;
-const furnitureModelCache = {};
-let threeSceneCenter = {x: cols / 2, y: rows / 2};
-const THREE_CELL_M = 1.0;
-const THREE_ROOM_HEIGHT = 0.06;
-const THREE_WALL_HEIGHT = 0.42;
-const THREE_FURNITURE_SCALE = 1.38;
-function threeHex(hex) { return new THREE.Color(hex || '#999999'); }
-function threePos(x, y, z = 0) { return new THREE.Vector3((x - threeSceneCenter.x) * THREE_CELL_M, z, (y - threeSceneCenter.y) * THREE_CELL_M); }
-function sceneCenterFromMasses(masses) {
-  if (!masses.length) return {x: cols / 2, y: rows / 2, span: Math.max(cols, rows)};
-  const minX = Math.min(...masses.map(m => m.x));
-  const maxX = Math.max(...masses.map(m => m.x + m.w));
-  const minY = Math.min(...masses.map(m => m.y));
-  const maxY = Math.max(...masses.map(m => m.y + m.d));
-  return {x: (minX + maxX) / 2, y: (minY + maxY) / 2, span: Math.max(maxX - minX, maxY - minY)};
-}
-function makeMat(color, roughness = 0.72, metalness = 0.02, opacity = 1) {
-  return new THREE.MeshStandardMaterial({color: threeHex(color), roughness, metalness, transparent: opacity < 1, opacity});
-}
-function brightenModelMaterial(mat, factor = 1.42) {
-  if (!mat) return mat;
-  mat.roughness = Math.min(0.95, Math.max(0.78, mat.roughness || 0.78));
-  mat.metalness = 0.0;
-  if (mat.color) {
-    const hsl = {};
-    mat.color.getHSL(hsl);
-    // Small GLB details such as bed rails and shelving frames must read by silhouette, not collapse into black strokes.
-    hsl.l = Math.min(0.86, Math.max(0.46, hsl.l * factor + 0.12));
-    hsl.s = Math.min(0.80, hsl.s * 1.04);
-    mat.color.setHSL(hsl.h, hsl.s, hsl.l);
-  }
-  if (mat.emissive) {
-    mat.emissive.copy(mat.color || new THREE.Color(0xffffff)).multiplyScalar(0.035);
-  }
-  mat.needsUpdate = true;
-  return mat;
-}
-function addFurnitureEdgeLines(mesh) {
-  if (!mesh || !mesh.geometry) return;
-  const edges = new THREE.EdgesGeometry(mesh.geometry, 25);
-  const lines = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({
-    color: 0x334155,
-    transparent: true,
-    opacity: 0.58,
-    depthTest: true,
-  }));
-  lines.name = 'semantic furniture silhouette edges';
-  lines.renderOrder = 6;
-  mesh.add(lines);
-}
-function addMesh(mesh, x, y, z, parent = threeRoot) {
-  mesh.position.copy(threePos(x, y, z));
-  parent.add(mesh);
-  return mesh;
-}
-function addBox3D(parent, x, y, w, d, h, color, z = 0, name = '') {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w * THREE_CELL_M, h, d * THREE_CELL_M), makeMat(color));
-  mesh.position.copy(threePos(x + w / 2, y + d / 2, z + h / 2));
-  mesh.castShadow = true; mesh.receiveShadow = true; mesh.name = name;
-  parent.add(mesh);
-  return mesh;
-}
-function addCylinder3D(parent, x, y, w, d, h, color, z = 0, name = '') {
-  const radius = Math.max(0.035, Math.min(w, d) * 0.5 * THREE_CELL_M);
-  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, h, 28), makeMat(color));
-  mesh.scale.x = Math.max(0.55, w / Math.min(w, d));
-  mesh.scale.z = Math.max(0.55, d / Math.min(w, d));
-  mesh.position.copy(threePos(x + w / 2, y + d / 2, z + h / 2));
-  mesh.castShadow = true; mesh.receiveShadow = true; mesh.name = name;
-  parent.add(mesh);
-  return mesh;
-}
-function addCapsule3D(parent, x, y, w, d, h, color, z = 0, name = '') {
-  const radius = Math.min(w, d) * 0.22;
-  const length = Math.max(0.05, Math.max(w, d) - radius * 2);
-  const geo = new THREE.CapsuleGeometry(radius, length, 6, 16);
-  const mesh = new THREE.Mesh(geo, makeMat(color));
-  mesh.rotation.z = Math.PI / 2;
-  mesh.scale.z = Math.max(0.45, d / Math.max(w, 0.01));
-  mesh.position.copy(threePos(x + w / 2, y + d / 2, z + h / 2));
-  mesh.castShadow = true; mesh.receiveShadow = true; mesh.name = name;
-  parent.add(mesh);
-  return mesh;
-}
-function addLabelSprite(parent, text, x, y, z) {
-  const canvasLabel = document.createElement('canvas');
-  canvasLabel.width = 128; canvasLabel.height = 48;
-  const c = canvasLabel.getContext('2d');
-  c.fillStyle = 'rgba(255,255,255,0.72)'; c.fillRect(0,0,128,48);
-  c.fillStyle = '#1f2937'; c.font = 'bold 24px Arial'; c.textAlign = 'center'; c.fillText(text, 64, 31);
-  const tex = new THREE.CanvasTexture(canvasLabel);
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({map: tex, transparent:true, depthTest:false}));
-  sprite.scale.set(0.9, 0.34, 1); sprite.position.copy(threePos(x, y, z)); sprite.renderOrder = 20; parent.add(sprite);
-}
-function addTorus3D(parent, x, y, w, d, tube, color, z = 0, name = '') {
-  const radius = Math.max(0.035, Math.min(w, d) * 0.30 * THREE_CELL_M);
-  const mesh = new THREE.Mesh(new THREE.TorusGeometry(radius, tube, 10, 32), makeMat(color));
-  mesh.rotation.x = Math.PI / 2;
-  mesh.scale.x = Math.max(0.65, w / Math.max(Math.min(w, d), 0.01));
-  mesh.scale.y = Math.max(0.65, d / Math.max(Math.min(w, d), 0.01));
-  mesh.position.copy(threePos(x + w / 2, y + d / 2, z));
-  mesh.castShadow = true; mesh.receiveShadow = true; mesh.name = name;
-  parent.add(mesh);
-  return mesh;
-}
-function addSlimCylinder3D(parent, x, y, radius, h, color, z = 0, name = '') {
-  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, h, 16), makeMat(color));
-  mesh.position.copy(threePos(x, y, z + h / 2));
-  mesh.castShadow = true; mesh.receiveShadow = true; mesh.name = name;
-  parent.add(mesh);
-  return mesh;
-}
-function addSphere3D(parent, x, y, radius, color, z = 0, name = '') {
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(radius, 18, 12), makeMat(color));
-  mesh.position.copy(threePos(x, y, z));
-  mesh.castShadow = true; mesh.receiveShadow = true; mesh.name = name;
-  parent.add(mesh);
-  return mesh;
-}
-function scaledFurnitureRect(item) {
-  const cx = item.x + item.w / 2;
-  const cy = item.y + item.d / 2;
-  const w = Math.min(item.w * THREE_FURNITURE_SCALE, item.w + 0.34);
-  const d = Math.min(item.d * THREE_FURNITURE_SCALE, item.d + 0.34);
-  return {x: cx - w / 2, y: cy - d / 2, w, d, cx, cy};
-}
-function applyThreeCameraPanVector() {
-  if (!threeCamera || typeof THREE === 'undefined') return;
-  threeDCameraTarget = new THREE.Vector3(threeDPan.x, threeDPan.y, threeDPan.z);
-  threeCamera.position.set(16 + threeDPan.x, 24 + threeDPan.y, 18 + threeDPan.z);
-  threeCamera.lookAt(threeDCameraTarget);
-}
-function applyThreeCameraZoom() {
-  if (!threeCamera) return;
-  threeCamera.zoom = threeDZoom * THREE_D_ZOOM_BASE;
-  threeCamera.updateProjectionMatrix();
-}
-function panThreeCameraByScreenDelta(dx, dy) {
-  if (!threeCamera || typeof THREE === 'undefined') return;
-  threeCamera.updateMatrixWorld();
-  const right = new THREE.Vector3().setFromMatrixColumn(threeCamera.matrixWorld, 0);
-  const up = new THREE.Vector3().setFromMatrixColumn(threeCamera.matrixWorld, 1);
-  const worldPerPixel = ((threeCamera.right - threeCamera.left) / threeCamera.zoom) / threeDCanvas.width;
-  const delta = right.multiplyScalar(-dx * worldPerPixel).add(up.multiplyScalar(dy * worldPerPixel));
-  threeDPan.x += delta.x;
-  threeDPan.y += delta.y;
-  threeDPan.z += delta.z;
-  applyThreeCameraPanVector();
-}
-function renderThreeSceneIfReady() {
-  if (threeRenderer && threeScene && threeCamera) threeRenderer.render(threeScene, threeCamera);
-}
-function initThreeViewer(masses) {
-  if (typeof THREE === 'undefined') throw new Error('Three.js failed to load; cannot render WebGL ward viewer.');
-  threeSceneCenter = sceneCenterFromMasses(masses || []);
-  if (threeRenderer) { threeRenderer.dispose(); threeRenderer = null; }
-  threeRenderer = new THREE.WebGLRenderer({canvas: threeDCanvas, antialias: true, preserveDrawingBuffer: true});
-  threeRenderer.setSize(threeDCanvas.width, threeDCanvas.height, false);
-  threeRenderer.setClearColor(0xf8fafc, 1);
-  threeRenderer.shadowMap.enabled = true;
-  threeScene = new THREE.Scene();
-  threeScene.background = new THREE.Color(0xf8fafc);
-  const aspect = threeDCanvas.width / threeDCanvas.height;
-  const view = Math.max(7.2, threeSceneCenter.span * 0.50);
-  threeCamera = new THREE.OrthographicCamera(-view * aspect, view * aspect, view, -view, 0.1, 200);
-  applyThreeCameraPanVector();
-  applyThreeCameraZoom();
-  threeScene.add(new THREE.HemisphereLight(0xffffff, 0xdbeafe, 0.92));
-  threeScene.add(new THREE.AmbientLight(0xffffff, 0.82));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.05);
-  sun.position.set(15, 28, 18); sun.castShadow = true; threeScene.add(sun);
-  const fill = new THREE.DirectionalLight(0xe0f2fe, 0.48);
-  fill.position.set(-18, 16, -14); threeScene.add(fill);
-  threeRoot = new THREE.Group();
-  threeRoot.rotation.y = threeDRotation.z;
-  // Orthographic isometric projection naturally pushes the plan upward; lower the root in camera-space so the ward reads centered in the canvas.
-  threeRoot.position.y = -Math.max(1.0, threeSceneCenter.span * 0.18);
-  threeScene.add(threeRoot);
-}
-function addWardFloorsAndWalls3D(masses) {
-  // WebGL room floor plate + low cutaway wall system: preserve readable room boundaries without returning to solid colored boxes.
-  const b = usableBounds();
-  if (b) addBox3D(threeRoot, b.minC, b.minR, b.maxC - b.minC + 1, b.maxR - b.minR + 1, 0.025, '#e5e7eb', -0.035, 'shared floor slab');
-  for (const mass of masses) {
-    addBox3D(threeRoot, mass.x, mass.y, mass.w, mass.d, THREE_ROOM_HEIGHT, shadeHex(mass.color, mass.value === moduleCodes.controlled_corridor ? 0.98 : 1.04), 0, 'room floor plate');
-    // No in-scene text labels: the 3D viewer must communicate by room color, massing, and furniture/equipment shape.
-  }
-  // 병실(R) 경계에만 벽 생성 — 병실 셀에 인접한 면에만 벽을 세움
-  const t = 0.055;
-  const suiteTypes = new Set([moduleCodes.negative_pressure_patient_room, moduleCodes.anteroom, moduleCodes.ensuite_toilet_shower]);
-  // 벽 조건:
-  // 1) 두 셀 타입이 다르고 하나 이상이 suite 타입 → 벽
-  // 2) 두 셀이 같은 suite 타입(R↔R 등)이라도 clusterGrid가 다르면(다른 스위트) → 벽
-  function needsWall(r1, c1, r2, c2) {
-    const v1 = grid[r1][c1], v2 = grid[r2][c2];
-    const s1 = suiteTypes.has(v1), s2 = suiteTypes.has(v2);
-    if (!s1 && !s2) return false;
-    if (v1 !== v2) return true;
-    // 같은 타입: 다른 클러스터이면 벽 (인접 병실)
-    return clusterGrid[r1][c1] !== clusterGrid[r2][c2];
-  }
-  // 수직 경계: (r, c)와 (r, c+1) 사이
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols - 1; c++) {
-      if (needsWall(r, c, r, c + 1))
-        addBox3D(threeRoot, c + 1 - t / 2, r, t, 1, THREE_WALL_HEIGHT, '#cbd5e1', THREE_ROOM_HEIGHT, 'suite wall');
-    }
-  }
-  // 수평 경계: (r, c)와 (r+1, c) 사이
-  for (let r = 0; r < rows - 1; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (needsWall(r, c, r + 1, c))
-        addBox3D(threeRoot, c, r + 1 - t / 2, 1, t, THREE_WALL_HEIGHT, '#f1f5f9', THREE_ROOM_HEIGHT, 'suite wall');
-    }
-  }
-}
-function addPrimitiveFurnitureItem3D(item) {
-  const z = THREE_ROOM_HEIGHT + 0.01;
-  const scaled = scaledFurnitureRect(item);
-  const x = scaled.x, y = scaled.y, w = scaled.w, d = scaled.d;
-  if (item.type === 'patient_bed') {
-    // 프레임
-    addBox3D(threeRoot, x + w*0.03, y + d*0.04, w*0.94, d*0.92, 0.08, '#64748b', z, 'bed frame');
-    // 매트리스 (박스)
-    addBox3D(threeRoot, x + w*0.07, y + d*0.08, w*0.86, d*0.78, 0.20, '#e0f2fe', z + 0.07, 'mattress');
-    // 베개 (박스)
-    addBox3D(threeRoot, x + w*0.18, y + d*0.70, w*0.64, d*0.16, 0.09, '#ffffff', z + 0.27, 'pillow');
-    // 헤드보드 (머리쪽 = y 큰 방향)
-    addBox3D(threeRoot, x + w*0.03, y + d*0.88, w*0.94, d*0.06, 0.38, '#334155', z + 0.07, 'headboard');
-    // 좌우 사이드레일
-    addBox3D(threeRoot, x + w*0.02, y + d*0.12, w*0.04, d*0.64, 0.14, '#94a3b8', z + 0.22, 'left rail');
-    addBox3D(threeRoot, x + w*0.94, y + d*0.12, w*0.04, d*0.64, 0.14, '#94a3b8', z + 0.22, 'right rail');
-    // IV 폴 (머리맡)
-    addBox3D(threeRoot, x + w*0.08, y + d*0.80, w*0.04, d*0.04, 0.72, '#475569', z, 'IV pole');
-    addBox3D(threeRoot, x + w*0.06, y + d*0.78, w*0.08, d*0.08, 0.06, '#fbbf24', z + 0.70, 'IV bag');
-  } else if (item.type === 'headwall') {
-    addBox3D(threeRoot, x, y + d*0.05, w, d*0.28, 0.36, '#475569', z, 'dark medical headwall panel');
-    addBox3D(threeRoot, x + w*0.12, y + d*0.11, w*0.22, d*0.08, 0.05, '#22c55e', z + 0.29, 'green gas outlet');
-    addBox3D(threeRoot, x + w*0.42, y + d*0.11, w*0.22, d*0.08, 0.05, '#ef4444', z + 0.29, 'red suction outlet');
-    addBox3D(threeRoot, x + w*0.72, y + d*0.11, w*0.16, d*0.08, 0.05, '#facc15', z + 0.29, 'yellow call outlet');
-  } else if (item.type === 'toilet_fixture') {
-    // 좌대 플린스
-    addBox3D(threeRoot, x + w*0.10, y + d*0.22, w*0.80, d*0.70, 0.14, '#ffffff', z, 'toilet bowl');
-    // 변기 시트 테두리
-    addBox3D(threeRoot, x + w*0.12, y + d*0.24, w*0.76, d*0.66, 0.04, '#0f172a', z + 0.14, 'toilet seat rim');
-    // 변기 안쪽
-    addBox3D(threeRoot, x + w*0.20, y + d*0.30, w*0.60, d*0.54, 0.03, '#bae6fd', z + 0.16, 'toilet bowl inside');
-    // 물탱크
-    addBox3D(threeRoot, x + w*0.14, y + d*0.02, w*0.72, d*0.20, 0.28, '#e2e8f0', z + 0.04, 'toilet tank');
-  } else if (item.type === 'washbasin' || item.type === 'handwash_sink') {
-    // 벽 브래킷
-    addBox3D(threeRoot, x + w*0.06, y + d*0.02, w*0.88, d*0.14, 0.18, '#94a3b8', z + 0.02, 'basin bracket');
-    // 세면대 본체 (박스)
-    addBox3D(threeRoot, x + w*0.06, y + d*0.18, w*0.88, d*0.72, 0.14, '#e0f2fe', z + 0.18, 'basin bowl');
-    // 수전
-    addBox3D(threeRoot, x + w*0.44, y + d*0.20, w*0.12, d*0.10, 0.20, '#334155', z + 0.30, 'faucet');
-    // 배수구 표시
-    addBox3D(threeRoot, x + w*0.44, y + d*0.48, w*0.12, d*0.10, 0.02, '#0ea5e9', z + 0.32, 'drain');
-  } else if (item.type === 'shower_zone') {
-    // 샤워 트레이
-    addBox3D(threeRoot, x, y, w, d, 0.04, '#bfdbfe', z, 'shower tray');
-    // 샤워 스크린 (한쪽 면)
-    addBox3D(threeRoot, x + w*0.02, y, w*0.96, d*0.04, 0.30, '#93c5fd', z + 0.02, 'shower screen front');
-    // 배수구 표시
-    addBox3D(threeRoot, x + w*0.38, y + d*0.38, w*0.18, d*0.18, 0.02, '#1e40af', z + 0.04, 'drain');
-    // 샤워 헤드 폴
-    addBox3D(threeRoot, x + w*0.82, y + d*0.16, w*0.06, d*0.06, 0.58, '#2563eb', z, 'shower riser');
-    // 샤워 헤드
-    addBox3D(threeRoot, x + w*0.74, y + d*0.12, w*0.20, d*0.14, 0.06, '#3b82f6', z + 0.58, 'shower head');
-  } else if (item.type === 'nurse_counter') {
-    addBox3D(threeRoot, x, y, w*0.86, d*0.34, 0.32, '#14b8a6', z, 'long teal nurse counter front');
-    addBox3D(threeRoot, x + w*0.55, y + d*0.38, w*0.36, d*0.52, 0.32, '#0d9488', z, 'perpendicular nurse counter return wing');
-    addBox3D(threeRoot, x + w*0.08, y + d*0.07, w*0.18, d*0.06, 0.18, '#1e293b', z + 0.30, 'nurse station monitor one');
-    addBox3D(threeRoot, x + w*0.35, y + d*0.07, w*0.18, d*0.06, 0.18, '#1e293b', z + 0.30, 'nurse station monitor two');
-  } else if (item.type === 'waste_bin') {
-    // 폐기물통 본체 (박스)
-    addBox3D(threeRoot, x + w*0.08, y + d*0.08, w*0.84, d*0.84, 0.28, item.color || '#ef4444', z, 'waste bin');
-    // 뚜껑 테두리
-    addBox3D(threeRoot, x + w*0.06, y + d*0.06, w*0.88, d*0.88, 0.03, '#7f1d1d', z + 0.27, 'bin rim');
-  } else if (item.type === 'ppe_bench') {
-    // 벤치 시트
-    addBox3D(threeRoot, x, y, w, d, 0.14, item.color || '#f59e0b', z, 'PPE bench seat');
-    // 쿠션 상판
-    addBox3D(threeRoot, x + w*0.04, y + d*0.04, w*0.92, d*0.92, 0.04, '#fef3c7', z + 0.13, 'bench cushion top');
-  } else if (item.type === 'workstation') {
-    addBox3D(threeRoot, x, y, w, d, 0.18, '#2dd4bf', z, 'teal workstation desk slab');
-    addBox3D(threeRoot, x + w*0.18, y + d*0.08, w*0.64, d*0.10, 0.26, '#0f172a', z + 0.16, 'large black computer monitor');
-    addBox3D(threeRoot, x + w*0.28, y + d*0.52, w*0.44, d*0.10, 0.035, '#334155', z + 0.19, 'flat keyboard strip');
-  } else if (item.type === 'meds_trolley' || item.type === 'medical_cart') {
-    addBox3D(threeRoot, x, y, w, d, 0.22, item.color || '#22c55e', z + 0.05, 'green medical cart body');
-    addBox3D(threeRoot, x + w*0.05, y + d*0.08, w*0.90, d*0.08, 0.04, '#bbf7d0', z + 0.30, 'bright top cart tray');
-    addBox3D(threeRoot, x + w*0.78, y + d*0.30, w*0.06, d*0.45, 0.26, '#166534', z + 0.12, 'upright cart handle');
-    addCylinder3D(threeRoot, x + w*0.04, y + d*0.04, w*0.16, d*0.16, 0.045, '#111827', z - 0.005, 'front cart wheel');
-    addCylinder3D(threeRoot, x + w*0.80, y + d*0.04, w*0.16, d*0.16, 0.045, '#111827', z - 0.005, 'front cart wheel');
-    addCylinder3D(threeRoot, x + w*0.04, y + d*0.80, w*0.16, d*0.16, 0.045, '#111827', z - 0.005, 'rear cart wheel');
-    addCylinder3D(threeRoot, x + w*0.80, y + d*0.80, w*0.16, d*0.16, 0.045, '#111827', z - 0.005, 'rear cart wheel');
-  } else if (item.type === 'donning_cabinet' || item.type === 'supply_shelving') {
-    addBox3D(threeRoot, x, y, w, d, 0.38, item.color || '#c4b5fd', z, 'tall supply cabinet volume');
-    addBox3D(threeRoot, x + w*0.08, y + d*0.06, w*0.84, d*0.04, 0.035, '#6d28d9', z + 0.16, 'cabinet shelf line one');
-    addBox3D(threeRoot, x + w*0.08, y + d*0.06, w*0.84, d*0.04, 0.035, '#6d28d9', z + 0.29, 'cabinet shelf line two');
-  } else if (item.type === 'dirty_worktop') {
-    addBox3D(threeRoot, x, y, w, d, 0.20, '#fb7185', z, 'pink soiled worktop counter');
-    addCylinder3D(threeRoot, x + w*0.62, y + d*0.18, w*0.24, d*0.24, 0.06, '#881337', z + 0.19, 'dark soiled worktop sink bowl');
-  } else {
-    addBox3D(threeRoot, x, y, w, d, Math.max(0.18, item.h * 1.35), item.color || '#e5e7eb', z, 'distinct fallback furniture volume ' + item.type);
-  }
-}
-function furnitureModelKeyForItem(item) {
-  return FURNITURE_MODEL_BY_TYPE[item.type] || null;
-}
-function ensureGltfLoader() {
-  if (gltfLoaderInstance) return Promise.resolve(gltfLoaderInstance);
-  if (window.GLTFLoader) {
-    gltfLoaderInstance = new window.GLTFLoader();
-    return Promise.resolve(gltfLoaderInstance);
-  }
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('GLTFLoader did not become available')), 5000);
-    window.addEventListener('ward-gltf-loader-ready', () => {
-      clearTimeout(timeout);
-      gltfLoaderInstance = new window.GLTFLoader();
-      resolve(gltfLoaderInstance);
-    }, {once:true});
-  });
-}
-function parseGltfDataUrl(loader, url) {
-  return fetch(url)
-    .then(resp => { if (!resp.ok) throw new Error('GLB fetch failed: ' + resp.status); return resp.arrayBuffer(); })
-    .then(buffer => new Promise((resolve, reject) => loader.parse(buffer, '', resolve, reject)));
-}
-async function loadFurnitureModel(key) {
-  if (!key || !FURNITURE_MODEL_URLS[key]) return null;
-  if (!furnitureModelCache[key]) {
-    const loader = await ensureGltfLoader();
-    furnitureModelCache[key] = parseGltfDataUrl(loader, FURNITURE_MODEL_URLS[key]).then(gltf => gltf.scene);
-  }
-  return furnitureModelCache[key];
-}
-function prepareFurnitureModelInstance(model, item, x, y, w, d, z) {
-  const instance = model.clone(true);
-  instance.name = 'GLB furniture model ' + furnitureModelKeyForItem(item) + ' for ' + item.type;
-  instance.traverse(obj => {
-    if (obj.isMesh) {
-      obj.castShadow = true; obj.receiveShadow = true;
-      if (obj.material) {
-        if (Array.isArray(obj.material)) obj.material = obj.material.map(m => brightenModelMaterial(m.clone()));
-        else obj.material = brightenModelMaterial(obj.material.clone());
-      }
-      addFurnitureEdgeLines(obj);
-    }
-  });
-  const sourceBox = new THREE.Box3().setFromObject(instance);
-  const size = sourceBox.getSize(new THREE.Vector3());
-  const targetW = Math.max(0.08, w * THREE_CELL_M);
-  const targetD = Math.max(0.08, d * THREE_CELL_M);
-  const uniformScale = Math.min(targetW / Math.max(size.x, 0.001), targetD / Math.max(size.z, 0.001));
-  instance.scale.setScalar(uniformScale);
-  const box = new THREE.Box3().setFromObject(instance);
-  const center = box.getCenter(new THREE.Vector3());
-  const bottom = box.min.y;
-  const target = threePos(x + w / 2, y + d / 2, z);
-  instance.position.set(target.x - center.x, target.y - bottom, target.z - center.z);
-  return instance;
-}
-async function addModelFurnitureItem3D(item) {
-  const key = furnitureModelKeyForItem(item);
-  if (!key) return false;
-  const model = await loadFurnitureModel(key);
-  if (!model) return false;
-  const z = THREE_ROOM_HEIGHT + 0.01;
-  const scaled = scaledFurnitureRect(item);
-  const instance = prepareFurnitureModelInstance(model, item, scaled.x, scaled.y, scaled.w, scaled.d, z);
-  threeRoot.add(instance);
-  return true;
-}
-async function addFurnitureItem3D(item) {
-  // GLB 모델 대신 primitive 렌더러 사용 (크기·형태 직접 제어)
-  addPrimitiveFurnitureItem3D(item);
-  return 'primitive';
-}
-
-async function renderSelectedLayout3D() {
-  const masses = build3DMassesFromGrid(grid).filter(m => m.value !== 1 && m.value !== 0);
-  if (!masses.length || !hasModule(moduleCodes.negative_pressure_patient_room)) {
-    threeDStatus.innerHTML = '<span id="ward-infeasible-warning" role="alert" style="color:#991b1b;font-weight:600;">No selected layout to view in 3D. Generate/select a feasible ward layout first.</span>';
-    return;
-  }
-  const sorted = masses.slice().sort((a,b) => (a.x + a.y + a.h) - (b.x + b.y + b.h));
-  initThreeViewer(sorted);
-  const furniture = sorted.flatMap(mass => buildFurnitureFromMass(mass));
-  addWardFloorsAndWalls3D(sorted);
-  threeDStatus.textContent = 'Loading GLB furniture models...';
-  const renderModes = [];
-  for (const item of furniture) renderModes.push(await addFurnitureItem3D(item));
-  const modelCount = renderModes.filter(mode => mode === 'model').length;
-  const fallbackCount = renderModes.length - modelCount;
-  threeDStatus.textContent = 'Three.js/WebGL ward viewer: GLB-backed low-poly medical furniture models, real 3D room plates, and cutaway walls. Modules: ' + masses.length + ', furniture: ' + furniture.length + ', GLB models: ' + modelCount + ', primitive fallback: ' + fallbackCount;
-  threeRenderer.render(threeScene, threeCamera);
-}
-threeDCanvas.addEventListener('contextmenu', e => e.preventDefault());
-threeDCanvas.addEventListener('mousedown', e => {
-  if (![0, 1, 2].includes(e.button)) return;
-  e.preventDefault();
-  threeDDragging = true;
-  threeDDragMode = (e.button === 0) ? 'rotate' : 'pan';
-  threeDLastMouse = {x:e.clientX, y:e.clientY};
-  threeDCanvas.classList.add('dragging');
-});
-window.addEventListener('mousemove', e => {
-  if (!threeDDragging || !threeDLastMouse || !threeRoot || !threeRenderer) return;
-  const dx = e.clientX - threeDLastMouse.x;
-  const dy = e.clientY - threeDLastMouse.y;
-  if (threeDDragMode === 'pan') {
-    panThreeCameraByScreenDelta(dx, dy);
-  } else {
-    threeDRotation.z += dx * 0.012;
-    threeRoot.rotation.y = threeDRotation.z;
-  }
-  threeDLastMouse = {x:e.clientX, y:e.clientY};
-  renderThreeSceneIfReady();
-});
-window.addEventListener('mouseup', () => { threeDDragging = false; threeDDragMode = null; threeDLastMouse = null; threeDCanvas.classList.remove('dragging'); });
-threeDCanvas.addEventListener('wheel', e => {
-  e.preventDefault();
-  threeDZoom = Math.max(0.35, Math.min(THREE_D_ZOOM_MAX, threeDZoom * (e.deltaY > 0 ? THREE_D_WHEEL_ZOOM_OUT : THREE_D_WHEEL_ZOOM_IN)));
-  applyThreeCameraZoom();
-  renderThreeSceneIfReady();
-}, {passive:false});
-canvas.addEventListener('wheel', e => { e.preventDefault(); planZoom = Math.max(0.45, Math.min(PLAN_ZOOM_MAX, planZoom * (e.deltaY > 0 ? 0.88 : 1.16))); applyPlanCanvasZoom(); }, {passive:false});
+  const hospitalReport = hospitalProgramRulesReport();
+  const hospitalLines = hospitalReport.placed
+    ? '<li style="margin-top:6px;font-weight:700;color:#1D1D1F;">병원 모듈 가이드라인</li>' + hospitalReport.lines.map(t => '<li>' + t + '</li>').join('')
+    : '';
+  ruleReport.innerHTML = '<b>Rule Score</b><ul><li>buffer: ' + (checks[0].ok ? 'OK' : 'direct clean-infected contact') + '</li><li>' + checks[1].message + '</li><li>' + checks[2].message + '</li><li>' + checks[3].message + '</li><li>' + checks[4].message + '</li><li>areaFillScore: ' + score.areaFillScore.toFixed(2) + ', edgeFillScore: ' + score.edgeFillScore.toFixed(2) + '</li>' + hospitalLines + '</ul>';
+}
+function clearGrid() { grid = blankGrid(); clusterGrid = blankClusterGrid(); moduleIdGrid = blankClusterGrid(); nextModuleNo = 1; layoutOptions = []; draw(); }
+function fillGrid() { grid = Array.from({length: rows}, () => Array(cols).fill(1)); clusterGrid = blankClusterGrid(); moduleIdGrid = blankClusterGrid(); nextModuleNo = 1; draw(); }
 canvas.addEventListener('mousedown', e => { isDown = true; dragStart = cellFromEvent(e); dragEnd = dragStart; if (tool === 'pencil') { setCell(dragStart); draw(); } });
 canvas.addEventListener('mousemove', e => { const pos = cellFromEvent(e); if (!pos) return; moduleInfo.textContent = 'cell (' + pos.r + ',' + pos.c + ') / ' + moduleDimensionText(grid[pos.r][pos.c]); if (!isDown) return; dragEnd = pos; if (tool === 'pencil') setCell(pos); draw(); });
 canvas.addEventListener('mouseup', e => { if (!isDown) return; dragEnd = cellFromEvent(e); if (tool === 'rectangle' && dragStart && dragEnd) { const r1=Math.min(dragStart.r,dragEnd.r), r2=Math.max(dragStart.r,dragEnd.r), c1=Math.min(dragStart.c,dragEnd.c), c2=Math.max(dragStart.c,dragEnd.c); for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++) grid[r][c]= mode==='paint'?1:0; } isDown=false; dragStart=null; dragEnd=null; draw(); });
 canvas.addEventListener('mouseleave', () => { isDown = false; dragStart = null; dragEnd = null; draw(); });
-applyPlanCanvasZoom();
+window.addEventListener('resize', fitPlanCanvas);
+fitPlanCanvas();
+setupModeSelector();
+renderHospitalProgramChecklist();
 draw();
 </script>
 </body>
@@ -2424,14 +1829,12 @@ html = html_template.safe_substitute(
     tool=tool,
     mode_json=json.dumps(mode),
     tool_json=json.dumps(tool),
-    default_bed_count=default_bed_count,
     module_db_js=json.dumps(module_db, ensure_ascii=False),
     module_meta_js=json.dumps(module_meta, ensure_ascii=False),
     module_codes_js=json.dumps(module_codes, ensure_ascii=False),
     code_to_module_js=json.dumps(code_to_module, ensure_ascii=False),
     colors_js=json.dumps(colors, ensure_ascii=False),
     labels_js=json.dumps(labels, ensure_ascii=False),
-    furniture_model_urls_js=json.dumps(furniture_model_urls, ensure_ascii=False),
     legend_html=legend_html,
 )
 

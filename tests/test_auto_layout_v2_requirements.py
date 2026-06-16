@@ -38,7 +38,7 @@ def test_auto_layout_v2_tracks_clusters_boundaries_and_dimensions():
     assert "function drawClusterOutlines" in text
     assert "function moduleDimensionText" in text
     assert "cluster_id" in text
-    assert "1.5m × 1.5m" in text
+    assert "1.8m × 1.8m" in text
 
 
 def test_generation_enforces_clean_infection_buffer_before_scoring():

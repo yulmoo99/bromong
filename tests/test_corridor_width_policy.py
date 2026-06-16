@@ -10,7 +10,8 @@ def source() -> str:
 
 def test_main_corridor_width_policy_is_explicit():
     text = source()
-    assert "MAIN_CORRIDOR_MIN_WIDTH_CELLS = 2" in text
+    assert "MAIN_CORRIDOR_MIN_WIDTH_CELLS = 1" in text
+    assert "HOSPITAL_CORRIDOR_WIDTH_CELLS = 1" in text
     assert "SHORT_CONNECTOR_MAX_CELLS" in text
     assert "function repairLongNarrowCorridorRuns" in text
     assert "function corridorWidthPolicyReport" in text
@@ -27,4 +28,4 @@ def test_rule_report_mentions_main_corridor_width_policy():
     text = source()
     window = text[text.index("function checkWardRules"):text.index("function clearGrid")]
     assert "corridorWidthPolicyReport" in window
-    assert "Main corridor width" in text
+    assert "Corridor width OK: 1-cell / 1.8m" in text

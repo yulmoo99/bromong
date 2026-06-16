@@ -1,11 +1,11 @@
 {
-  "version": "0.2",
-  "scope": "compact infectious disease ward cluster / 병동 우선",
+  "version": "0.3",
+  "scope": "infectious disease ward + modular hospital program / 병동과 병원 자동배치",
   "status_note": "v0.2 separates verified legal area, guideline planning area, and rectangular/aspect-ratio shape policies. Only legal_basis values are legal minima; planning_area_m2 and shape_policy are design/algorithm guidance.",
   "grid_assumption": {
-    "default_cell_size_m": 1.5,
-    "cell_area_m2": 2.25,
-    "note": "1.5m grid is a planning grid for early massing. It does not replace detailed room dimensioning. Area-based legal minima are converted to conservative grid blocks where possible."
+    "default_cell_size_m": 1.8,
+    "cell_area_m2": 3.24,
+    "note": "1칸 = 1.8m × 1.8m = 3.24㎡ planning grid. One compact hospital corridor band is 1 cell; a 3.6m × 7.2m hospital base module is represented as 2×4 cells."
   },
   "sources": [
     {
@@ -44,6 +44,27 @@
         "Anteroom supports transfer, pressure buffering, PPE donning/removal, and handwashing",
         "Negative pressure rooms should be located near the inpatient unit entry where possible",
         "Ensuite entry should not be located within the anteroom"
+      ]
+    },
+    {
+      "id": "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018",
+      "title": "의료기관 건축설계 가이드라인 연구(최종) — user-provided PDF",
+      "issuer": "한국의료복지건축학회/보건의료 시설 가이드라인 연구 자료",
+      "local_file": "/root/.hermes/cache/documents/doc_0c7b47e59644_의료기관+건축설계+가이드라인+연구(최종).pdf",
+      "key_points": [
+        "일반병동·중환자실·신생아실·인공신장실·수술부의 위치, 공간구성, 단위공간 계획 기준을 추출하여 병원 프로그램 모듈의 면적/동반실/조닝 참고 기준으로 적용",
+        "수술부: 수술실, 회복실, 스크럽/준비/소독/청결물품/오물처리/멸균물품 등 지원공간 구성",
+        "인공신장실: 혈액투석실, 환자관찰, 청결물품실, 오물처리실, 준비실, 환자화장실 등 기본공간 구성"
+      ]
+    },
+    {
+      "id": "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES",
+      "title": "의료법 시행규칙 제34조 및 [별표 4] 의료기관의 시설규격",
+      "issuer": "보건복지부 / 국가법령정보센터",
+      "url": "https://www.law.go.kr/법령/의료법시행규칙/제34조",
+      "key_points": [
+        "입원실, 중환자실, 수술실 등 의료기관 시설규격의 법적 기준 출처로 기록",
+        "세부 면적은 법령 최소와 가이드라인 계획면적을 구분하여 사용"
       ]
     }
   ],
@@ -425,8 +446,8 @@
   ],
   "general_room_standards": {
     "source_note": "General healthcare planning standards compiled for auto-layout; not specific to the user graduation project massing.",
-    "cell_size_m": 1.5,
-    "cell_area_m2": 2.25,
+    "cell_size_m": 1.8,
+    "cell_area_m2": 3.24,
     "aspect_ratio_rule": {
       "clinical_room_preferred_max": 1.5,
       "clinical_room_hard_max": 1.8,
@@ -580,5 +601,651 @@
         "status": "guideline_general"
       }
     ]
-  }
+  },
+  "hospital_module_basis": {
+    "base_module_m": [
+      3.6,
+      7.2
+    ],
+    "base_module_cells": [
+      2,
+      4
+    ],
+    "base_module_area_m2": 25.92,
+    "corridor_width_cells": 1,
+    "corridor_width_m": 1.8,
+    "principle": "1칸 = 1.8m × 1.8m = 3.24㎡. 복도는 1칸(1.8m)부터 계획하고, 진료/검사/처치/수술/지원 기능은 3.6m × 7.2m 기본 모듈(2×4칸)의 배수 및 수량 입력에 따라 자동배치한다."
+  },
+  "hospital_program_modules": [
+    {
+      "id": "exam_room",
+      "name_ko": "진료실 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "선별진료실",
+        "감염내과 진료실",
+        "산과 외래"
+      ],
+      "recommended_area": "15㎡ 최소 / 18~25㎡ 권장",
+      "module_count": 1,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        2,
+        4
+      ],
+      "planning_area_m2": 25.9,
+      "code": 60,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "specimen_collection",
+      "name_ko": "검체채취 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "채혈실",
+        "검체채취실"
+      ],
+      "recommended_area": "12~20㎡ 권장",
+      "module_count": 1,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        2,
+        4
+      ],
+      "planning_area_m2": 25.9,
+      "code": 61,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "emergency_care",
+      "name_ko": "응급진료 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "응급진찰실",
+        "응급처치실"
+      ],
+      "recommended_area": "25~35㎡ 권장",
+      "module_count": 1.5,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        3,
+        4
+      ],
+      "planning_area_m2": 38.9,
+      "code": 62,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "observation_4bed",
+      "name_ko": "관찰 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "응급관찰실 4베드"
+      ],
+      "recommended_area": "침상당 8~10㎡ / 4베드 32~40㎡",
+      "module_count": 2,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        4,
+        4
+      ],
+      "planning_area_m2": 51.8,
+      "code": 63,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "ct_suite",
+      "name_ko": "CT 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "CT실",
+        "조작실",
+        "대기공간"
+      ],
+      "recommended_area": "45~60㎡ 권장",
+      "module_count": 2,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        4,
+        4
+      ],
+      "planning_area_m2": 51.8,
+      "code": 64,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "xray_room",
+      "name_ko": "일반촬영(X-ray) 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "X-ray 촬영실"
+      ],
+      "recommended_area": "20~30㎡ 권장",
+      "module_count": 1,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        2,
+        4
+      ],
+      "planning_area_m2": 25.9,
+      "code": 65,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "diagnostic_lab",
+      "name_ko": "진단검사실 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "임상병리검사실",
+        "검체 처리"
+      ],
+      "recommended_area": "40~80㎡ 권장",
+      "module_count": 2,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        4,
+        4
+      ],
+      "planning_area_m2": 51.8,
+      "code": 66,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "pathology_lab",
+      "name_ko": "병리과 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "병리검사실",
+        "판독실"
+      ],
+      "recommended_area": "40~60㎡ 권장",
+      "module_count": 2,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        4,
+        4
+      ],
+      "planning_area_m2": 51.8,
+      "code": 67,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "treatment_room",
+      "name_ko": "처치실 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "처치실"
+      ],
+      "recommended_area": "20~30㎡ 권장",
+      "module_count": 1,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        2,
+        4
+      ],
+      "planning_area_m2": 25.9,
+      "code": 68,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "infusion_6bed",
+      "name_ko": "수액실 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "6베드 수액실"
+      ],
+      "recommended_area": "50~60㎡ 권장",
+      "module_count": 2,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        4,
+        4
+      ],
+      "planning_area_m2": 51.8,
+      "code": 69,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "dialysis_4bed",
+      "name_ko": "투석실 4베드 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "4베드 투석실"
+      ],
+      "recommended_area": "투석 베드당 ≥6~7.1㎡, 격리 투석실 ≥12㎡ (가이드라인 2018)",
+      "module_count": 2,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        4,
+        4
+      ],
+      "planning_area_m2": 51.8,
+      "code": 70,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "dialysis_8bed",
+      "name_ko": "투석실 8베드 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "8베드 투석실"
+      ],
+      "recommended_area": "투석 베드당 ≥6~7.1㎡(8베드 ≥64~80㎡), 격리 투석실 ≥12㎡",
+      "module_count": 3,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        4,
+        6
+      ],
+      "planning_area_m2": 77.8,
+      "code": 71,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "operating_room",
+      "name_ko": "수술실 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "중형 OR"
+      ],
+      "recommended_area": "감염중증도 ≥37㎡(6.0×6.2m) / 고위험도 ≥54㎡(6×9m), 한 면 ≥6m (가이드라인 2018)",
+      "module_count": 2,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        4,
+        4
+      ],
+      "planning_area_m2": 51.8,
+      "code": 72,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "surgery_support",
+      "name_ko": "수술지원 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "준비실",
+        "회복실"
+      ],
+      "recommended_area": "수술부 지원: 기기창고 ≥14㎡ 또는 수술실당 ≥4.6㎡, 마취준비·스크럽 포함",
+      "module_count": 2,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        4,
+        4
+      ],
+      "planning_area_m2": 51.8,
+      "code": 73,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "delivery_room",
+      "name_ko": "분만실 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "감염병 분만실"
+      ],
+      "recommended_area": "25~35㎡ 권장",
+      "module_count": 1,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        2,
+        4
+      ],
+      "planning_area_m2": 25.9,
+      "code": 74,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "newborn_treatment",
+      "name_ko": "신생아 처치 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "신생아 처치실"
+      ],
+      "recommended_area": "신생아 bassinet당 ≥2.2㎡, 개방형 NICU 병상당 ≥6.9㎡ (가이드라인 2018)",
+      "module_count": 1,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        2,
+        4
+      ],
+      "planning_area_m2": 25.9,
+      "code": 75,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "clinical_research_lab",
+      "name_ko": "연구실 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "임상연구실"
+      ],
+      "recommended_area": "25~40㎡ 권장",
+      "module_count": 1,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        2,
+        4
+      ],
+      "planning_area_m2": 25.9,
+      "code": 76,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "data_analysis_room",
+      "name_ko": "데이터분석실 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "데이터분석실"
+      ],
+      "recommended_area": "20~30㎡ 권장",
+      "module_count": 1,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        2,
+        4
+      ],
+      "planning_area_m2": 25.9,
+      "code": 77,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "meeting_room",
+      "name_ko": "회의실 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "회의실"
+      ],
+      "recommended_area": "20~40㎡ 권장",
+      "module_count": 1,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        2,
+        4
+      ],
+      "planning_area_m2": 25.9,
+      "code": 78,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "administration",
+      "name_ko": "행정 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "행정실"
+      ],
+      "recommended_area": "25~50㎡ 권장",
+      "module_count": 1,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        2,
+        4
+      ],
+      "planning_area_m2": 25.9,
+      "code": 79,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
+      "id": "recovery_room",
+      "name_ko": "회복실 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "수술 후 회복실",
+        "PACU"
+      ],
+      "recommended_area": "수술실당 1.5병상 권장, 병상중심 간 2.5m·측벽 0.9m·병상간 1.5m",
+      "module_count": 2,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        4,
+        4
+      ],
+      "planning_area_m2": 51.8,
+      "code": 80,
+      "default_quantity": 0,
+      "quantity_step": 1,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "source_note": "사용자 제공 의료기관 건축설계 가이드라인 연구(최종) 수술부: 회복실은 수술실로 연결되는 복도와 직접 연결 권장."
+    },
+    {
+      "id": "central_supply",
+      "name_ko": "중앙공급/멸균물품 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "중앙공급 연계",
+        "멸균물품실",
+        "청결물품실"
+      ],
+      "recommended_area": "수술부 물류/멸균물품 지원 모듈",
+      "module_count": 2,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        4,
+        4
+      ],
+      "planning_area_m2": 51.8,
+      "code": 81,
+      "default_quantity": 0,
+      "quantity_step": 1,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "source_note": "사용자 제공 의료기관 건축설계 가이드라인 연구(최종) 수술부: 중앙공급부 직접 접근, 청결/비청결 물품 동선 분리."
+    }
+  ]
 }

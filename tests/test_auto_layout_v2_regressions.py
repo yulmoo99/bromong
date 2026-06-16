@@ -109,17 +109,18 @@ def test_front_service_suite_keeps_wc_beside_anteroom_and_room_behind():
     assert "room behind service band" in text
 
 
-def test_generate_layout_options_keeps_three_named_distinct_strategy_cards():
+def test_ward_generation_no_longer_shows_three_option_comparison_cards():
     text = source()
 
     assert "function strategyLabelForIndex" in text
-    assert "layoutOptions.length === 3" in text
+    assert "layoutOptions.length === 1" in text
     assert "distinctSignature" in text
-    assert "Option ${" in text
+    assert "3가지 배치안" not in text
+    assert "옵션 ' + (idx+1)" not in text
     assert "corridorStrategy" in text
 
 
-def test_layout_generation_buttons_are_merged_into_single_three_option_action():
+def test_layout_generation_buttons_are_merged_into_single_generation_action():
     text = source()
 
     assert '<button onclick="generateLayoutOptions()">Generate / Regenerate Layout Options</button>' in text

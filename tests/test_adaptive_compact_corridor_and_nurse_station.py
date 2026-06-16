@@ -42,7 +42,7 @@ def test_option_panel_explains_when_compact_sites_use_linear_not_loop_strategy()
     assert "function corridorStrategyName" in text
     assert "function strategyLabelForIndex" in text
     panel_window = text[text.index("function renderOptionPanel"):text.index("function generateLayoutOptions")]
-    assert "strategyLabelForIndex(idx, opt.corridorStrategy)" in panel_window
+    assert "strategyLabelForIndex(0, opt.corridorStrategy)" in panel_window
     assert "corridorStrategy:" in panel_window
     assert "1자 양측복도" in text
     assert "1자 단측복도" in text

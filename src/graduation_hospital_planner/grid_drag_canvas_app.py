@@ -1681,34 +1681,16 @@ function drawMiniPreview(canvasId, optGrid) {
 }
 function renderOptionPanel() {
   compareLayoutOptions();
-  const previewW = 300; // 그리드 옆 세로 컬럼: 3가지 안을 위→아래로 쌓는다.
-  let html = '<b style="font-size:14px;letter-spacing:-.018em;">3가지 배치안</b>';
-  html += '<div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">';
-  layoutOptions.forEach((opt, idx) => {
-    const label = strategyLabelForIndex(idx, opt.corridorStrategy);
-    const sig = distinctSignature(opt.grid);
-    const bedCount = (sig.match(/R(\d+)/) || [])[1] || '?';
-    const roomCells = parseInt(bedCount, 10) || 0;
-    const bedEst = Math.floor(roomCells / (unifiedSuitePreset.up_down.roomH * unifiedSuitePreset.up_down.roomW));
-    const areaScore = (opt.score.areaFillScore * 100).toFixed(0);
-    html += '<div class="option-card" style="margin:0;width:100%;padding:14px;">';
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
-    html += '<b>옵션 ' + (idx+1) + '</b>';
-    html += '<button onclick="selectLayoutOption(' + idx + ')" style="font-size:11px;padding:6px 12px;">이 안 선택</button>';
-    html += '</div>';
-    html += '<canvas id="miniPreview' + idx + '" width="' + previewW + '" style="width:100%;border-radius:10px;border:1px solid rgba(210,210,215,.7);display:block;"></canvas>';
-    html += '<div class="small" style="margin-top:8px;">';
-    html += '<b style="color:#1D1D1F;">' + label + '</b><br/>';
-    html += (opt.corridorStrategy && opt.corridorStrategy.startsWith('hospital_program:') ? '배치 모듈: <b>' + (opt.placedPrograms || 0) + '개</b> · 1칸 3.24㎡ 기준' : '배치 병상: <b>' + bedEst + '개</b>') + ' &nbsp;|&nbsp; 공간 이용률: <b>' + areaScore + '%</b><br/>';
-    html += '<span style="color:#aaa;">corridorStrategy: ' + opt.corridorStrategy + '</span>';
-    html += '</div></div>';
-  });
-  html += '</div>';
-  html += '<p class="small" style="margin-top:10px;color:#6E6E73;">※ 이용률(%)은 usable area 대비 모듈 배치 면적 비율입니다. 높을수록 공간 효율이 좋으나, 감염병동 특성상 과밀 여부도 함께 검토하세요.</p>';
-  optionPanel.innerHTML = html;
-  layoutOptions.forEach((opt, idx) => {
-    drawMiniPreview('miniPreview' + idx, opt.grid);
-  });
+  const opt = layoutOptions[0];
+  if (!opt) return;
+  const label = strategyLabelForIndex(0, opt.corridorStrategy);
+  const sig = distinctSignature(opt.grid);
+  const bedCount = (sig.match(/R(\d+)/) || [])[1] || '?';
+  const roomCells = parseInt(bedCount, 10) || 0;
+  const bedEst = Math.floor(roomCells / (unifiedSuitePreset.up_down.roomH * unifiedSuitePreset.up_down.roomW));
+  const areaScore = (opt.score.areaFillScore * 100).toFixed(0);
+  optionPanel.innerHTML = '<b>배치 완료</b> · 배치 병상 <b>' + bedEst + '개</b> · 공간 이용률 <b>' + areaScore + '%</b><br/>'
+    + '<span class="small"><b>' + label + '</b> · corridorStrategy: ' + opt.corridorStrategy + '</span>';
 }
 function generateLayoutOptions() {
   // 배치 모드는 상단 라디오로 명시 선택 (체크 여부로 추론하지 않음).
@@ -1726,7 +1708,7 @@ function generateLayoutOptions() {
   const base = cloneGrid(grid);
   layoutOptions = [];
   const infeasibleReports = [];
-  for (let strategy=0; strategy<3; strategy++) {
+  for (let strategy=0; strategy<1; strategy++) {
     grid = cloneGrid(base);
     if (!gridHasUsableArea()) createDefaultMaskForBedCount(targetBeds);
     resetModulesToUsableArea();
@@ -1743,7 +1725,7 @@ function generateLayoutOptions() {
     const corridorStrategy = corridorStrategyName(strategy);
     layoutOptions.push({grid: cloneGrid(grid), clusterGrid: cloneGrid(clusterGrid), score, placedSuites: finalSuites, corridorStrategy});
   }
-  // Feasible default masks should still produce layoutOptions.length === 3; infeasible tiny masks now warn instead of showing corridor-only options.
+  // Ward mode now returns one committed layout; layoutOptions.length === 1 when feasible.
   if (layoutOptions.length === 0) {
     grid = cloneGrid(base);
     clusterGrid = blankClusterGrid();

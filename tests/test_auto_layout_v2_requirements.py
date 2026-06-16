@@ -18,7 +18,7 @@ def test_auto_layout_v2_requirements_document_is_saved():
     assert "병동 모듈 단위마다 윤곽선" in text
 
 
-def test_app_has_bed_count_and_three_option_generation_ui():
+def test_app_has_bed_count_and_single_generation_ui():
     text = source()
 
     assert "bedCount" in text

@@ -1512,6 +1512,17 @@ const HOSPITAL_DEPARTMENT_ORDERS = [
   ['obs','surg','acute','img','exam','inf','adm'],
   ['adm','exam','img','acute','surg','inf','obs']
 ];
+const HOSPITAL_RELATED_GROUPS = [
+  {key:'surgery_core', label:'수술 core group', dept:'surg', maxPerGroup: 3, ids:['operating_room','surgery_support','recovery_room']},
+  {key:'surgery_supply', label:'수술 멸균공급 group', dept:'surg', maxPerGroup: 2, ids:['central_supply','surgery_support']},
+  {key:'acute_care', label:'응급-관찰-처치 group', dept:'acute', maxPerGroup: 3, ids:['emergency_care','observation_4bed','treatment_room']},
+  {key:'imaging', label:'영상검사 group', dept:'img', maxPerGroup: 2, ids:['ct_suite','xray_room']},
+  {key:'diagnostic', label:'검체-진단-병리 group', dept:'img', maxPerGroup: 3, ids:['specimen_collection','diagnostic_lab','pathology_lab']},
+  {key:'outpatient', label:'외래-처치-수액 group', dept:'exam', maxPerGroup: 3, ids:['exam_room','treatment_room','infusion_6bed']},
+  {key:'dialysis', label:'투석 group', dept:'inf', maxPerGroup: 2, ids:['dialysis_4bed','dialysis_8bed']},
+  {key:'obstetric', label:'분만-신생아 group', dept:'obs', maxPerGroup: 2, ids:['delivery_room','newborn_treatment']},
+  {key:'research_admin', label:'연구-행정 group', dept:'adm', maxPerGroup: 6, ids:['clinical_research_lab','data_analysis_room','meeting_room','administration']}
+];
 const HOSPITAL_ADJACENCY_RULES = [
   // source: USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018 — 수술부는 수술 전후 환자·의료진·물류 흐름, 청결/비청결 동선 분리, 회복실·중앙공급 연계를 우선한다.
   ['operating_room','recovery_room',100,'수술실-회복실 직접 연계'],
@@ -1564,41 +1575,61 @@ function placeOneHospitalModule(r0, c0, h, w, code) {
   for (let r = r0; r < r0 + h; r++) for (let c = c0; c < c0 + w; c++) moduleIdGrid[r][c] = id;
   return true;
 }
-function departmentRows(dept, mods) {
-  // 부서 덩어리 내부를 '마주보는 줄'로 나눈다(줄 사이 1칸은 비워 가운데 복도 → 양면복도/마주보기). 한 줄에 여러 실을 가로로 둔다.
-  if (mods.length <= 1) return [mods];
-  if (dept === 'surg') {
-    const ors = mods.filter(m => m.code === moduleCodes.operating_room);
-    const support = mods.filter(m => m.code !== moduleCodes.operating_room);
-    if (ors.length && support.length) {
-      // 수술실을 윗줄/아랫줄로 나누고 지원 코어(수술지원·중앙공급·회복)를 가운데 두어, 수술실이 코어를 사이에 두고 마주보게 한다.
-      const half = Math.ceil(ors.length / 2);
-      const out = [];
-      if (ors.slice(0, half).length) out.push(ors.slice(0, half)); // 수술실 윗줄
-      out.push(support);                                           // 지원 코어 (가운데)
-      if (ors.slice(half).length) out.push(ors.slice(half));       // 수술실 아랫줄
-      return out;
+function hospitalGroupRows(group, mods) {
+  // 관련 실 2~3개는 하나의 작은 단위로 붙여 복도가 둘러싸게 한다. 4개 이상이면 3개 이하 row로 쪼개고 가운데 복도를 사이에 두어 마주보게 한다.
+  if (mods.length <= 3) return [mods];
+  const rowCount = Math.ceil(mods.length / 3);
+  const rowsOut = [];
+  for (let i = 0; i < rowCount; i++) rowsOut.push(mods.slice(i * 3, i * 3 + 3));
+  const half = Math.ceil(rowsOut.length / 2);
+  return rowsOut.slice(0, half).concat(rowsOut.slice(half));
+}
+function blockHasFacingRows(blockRows) {
+  return blockRows.length > 1;
+}
+function buildHospitalProgramGroups(instances, strategyIndex) {
+  // 부서 전체를 하나의 큰 덩어리로 만들지 않고, 인접성이 강한 2~3개 실 단위로 묶는다.
+  const remaining = instances.slice();
+  const groups = [];
+  const orders = HOSPITAL_DEPARTMENT_ORDERS;
+  const deptOrder = orders[strategyIndex % orders.length] || HOSPITAL_DEPARTMENT_ORDER;
+  const relatedGroups = HOSPITAL_RELATED_GROUPS.slice().sort((a, b) => deptOrder.indexOf(a.dept) - deptOrder.indexOf(b.dept));
+  function takeForSpec(spec) {
+    const picked = [];
+    for (const id of spec.ids) {
+      for (let i = 0; i < remaining.length && picked.length < spec.maxPerGroup; i++) {
+        if (remaining[i] && remaining[i].program.id === id) {
+          picked.push(remaining.splice(i, 1)[0]);
+          i -= 1;
+        }
+      }
+    }
+    return picked;
+  }
+  for (const spec of relatedGroups) {
+    let picked = takeForSpec(spec);
+    while (picked.length) {
+      groups.push({groupKey: spec.key, label: spec.label, dept: spec.dept, instances: picked});
+      picked = takeForSpec(spec);
     }
   }
-  // 기본: 실 개수 기준 2줄로 나눠 서로 마주보게 한다.
-  const half = Math.ceil(mods.length / 2);
-  return [mods.slice(0, half), mods.slice(half)].filter(r => r.length);
+  for (const inst of remaining) {
+    const dept = HOSPITAL_DEPARTMENT[inst.program.id] || 'adm';
+    groups.push({groupKey: 'single_' + inst.program.id, label: inst.program.name_ko || inst.program.id, dept, instances: [inst]});
+  }
+  return groups;
 }
 function buildDepartmentBlocks(requests, strategyIndex) {
-  // 부서별로 하나의 덩어리(block)를 만든다. 덩어리는 마주보는 여러 줄로 구성되고, 줄 사이엔 복도가 들어간다.
+  // 관련 실 group마다 하나의 작은 block을 만든다. block 사이는 빈 칸으로 남겨 최종적으로 복도가 감싸는 형태가 된다.
   const instances = expandHospitalProgramRequests(requests);
-  const byDept = {};
-  for (const inst of instances) { const d = HOSPITAL_DEPARTMENT[inst.program.id] || 'adm'; (byDept[d] = byDept[d] || []).push(inst); }
-  const orders = HOSPITAL_DEPARTMENT_ORDERS;
-  const order = orders[strategyIndex % orders.length] || HOSPITAL_DEPARTMENT_ORDER;
+  const groups = buildHospitalProgramGroups(instances, strategyIndex);
   const blocks = [];
-  for (const d of order) {
-    const list = byDept[d]; if (!list || !list.length) continue;
-    const mods = list.map(inst => { const wh = normalizedModuleWH(inst.program); return {w: wh.w, h: wh.h, code: moduleCodes[inst.program.id]}; });
-    const blockRows = departmentRows(d, mods);
+  for (const group of groups) {
+    const mods = group.instances.map(inst => { const wh = normalizedModuleWH(inst.program); return {w: wh.w, h: wh.h, code: moduleCodes[inst.program.id], id: inst.program.id}; });
+    const blockRows = hospitalGroupRows(group, mods);
     const W = Math.max(...blockRows.map(r => r.reduce((s, m) => s + m.w, 0)));
-    const H = blockRows.length * HOSPITAL_BAND_DEPTH_CELLS + (blockRows.length - 1); // 줄 사이 복도 포함
-    blocks.push({W, H, rows: blockRows, dept: d});
+    const H = blockRows.length * HOSPITAL_BAND_DEPTH_CELLS + (blockRows.length - 1); // row 사이 1칸은 내부 양면복도
+    blocks.push({W, H, rows: blockRows, dept: group.dept, groupKey: group.groupKey, label: group.label, facingRows: blockHasFacingRows(blockRows)});
   }
   // 전략별로 정렬 압력을 달리해 후보 배치의 zoning 방향을 바꾼다.
   if (strategyIndex === 2) blocks.sort((a, b) => b.W * b.H - a.W * a.H);
@@ -1805,8 +1836,8 @@ function generateHospitalLayoutOptions(programRequests) {
     fillRemainingEdgeCells(corridorCells);
     const score = layoutUtilizationScore();
     const adjacency = scoreHospitalAdjacency(grid);
-    // 기존 hospital_program:department_cluster 방식은 유지하되, 내부 후보를 hospital_program:adjacency_scored 로 재점수화한다.
-    candidates.push({grid: cloneGrid(grid), clusterGrid: cloneGrid(clusterGrid), moduleIdGrid: cloneGrid(moduleIdGrid), score, placedSuites: 0, placedPrograms, adjacencyScore: adjacency.score, adjacencySummary: adjacency.summary, adjacencyMatched: adjacency.matched, corridorStrategy: 'hospital_program:adjacency_scored'});
+    // 기존 hospital_program:department_cluster 방식은 작은 관련 실 단위 group corridor로 세분화하고, 내부 후보를 hospital_program:group_corridor_adjacency_scored 로 재점수화한다.
+    candidates.push({grid: cloneGrid(grid), clusterGrid: cloneGrid(clusterGrid), moduleIdGrid: cloneGrid(moduleIdGrid), score, placedSuites: 0, placedPrograms, adjacencyScore: adjacency.score, adjacencySummary: adjacency.summary, adjacencyMatched: adjacency.matched, corridorStrategy: 'hospital_program:group_corridor_adjacency_scored'});
   }
   const best = chooseBestHospitalLayoutCandidate(candidates);
   if (!best) {

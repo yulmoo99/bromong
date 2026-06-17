@@ -28,6 +28,10 @@ def test_hospital_adjacency_rules_encode_guideline_clusters():
 def test_hospital_layout_candidates_are_scored_by_adjacency_before_single_result():
     src = app_source()
 
+    assert "const HOSPITAL_RELATED_GROUPS" in src
+    assert "function buildHospitalProgramGroups" in src
+    assert "function hospitalGroupRows" in src
+    assert "function blockHasFacingRows" in src
     assert "function hospitalProgramCentroids" in src
     assert "function scoreHospitalAdjacency" in src
     assert "function chooseBestHospitalLayoutCandidate" in src
@@ -35,7 +39,28 @@ def test_hospital_layout_candidates_are_scored_by_adjacency_before_single_result
     assert "adjacencySummary" in src
     assert "strategy<6" in src
     assert "layoutOptions = [best]" in src
-    assert "hospital_program:adjacency_scored" in src
+    assert "hospital_program:group_corridor_adjacency_scored" in src
+
+
+def test_hospital_grouping_keeps_related_rooms_in_small_corridor_wrapped_units():
+    src = app_source()
+
+    assert "maxPerGroup: 3" in src
+    assert "응급-관찰-처치 group" in src
+    assert "영상검사 group" in src
+    assert "검체-진단-병리 group" in src
+    assert "수술 core group" in src
+    assert "groupKey" in src
+    assert "hospital_program:group_corridor_adjacency_scored" in src
+
+
+def test_large_hospital_groups_are_split_into_facing_rows_not_single_lumps():
+    src = app_source()
+
+    assert "if (mods.length <= 3) return [mods]" in src
+    assert "const rowCount = Math.ceil(mods.length / 3)" in src
+    assert "const half = Math.ceil(rowsOut.length / 2)" in src
+    assert "blockHasFacingRows" in src
 
 
 def test_hospital_option_panel_explains_adjacency_logic():

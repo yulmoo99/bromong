@@ -46,6 +46,10 @@ def test_hospital_grouping_keeps_related_rooms_in_small_corridor_wrapped_units()
     src = app_source()
 
     assert "maxPerGroup: 3" in src
+    assert "const HOSPITAL_GROUP_INTERNAL_GAP_CELLS = 1" in src
+    assert "function hospitalRowWidth" in src
+    assert "function advanceHospitalModuleColumn" in src
+    assert "markHospitalInternalCorridorGap" in src
     assert "응급-관찰-처치 group" in src
     assert "영상검사 group" in src
     assert "검체-진단-병리 group" in src
@@ -61,6 +65,15 @@ def test_large_hospital_groups_are_split_into_facing_rows_not_single_lumps():
     assert "const rowCount = Math.ceil(mods.length / 3)" in src
     assert "const half = Math.ceil(rowsOut.length / 2)" in src
     assert "blockHasFacingRows" in src
+
+
+def test_related_rooms_have_internal_corridor_gaps_not_touching_walls():
+    src = app_source()
+
+    assert "row.length - 1) * HOSPITAL_GROUP_INTERNAL_GAP_CELLS" in src
+    assert "cc = advanceHospitalModuleColumn(cc, m.w)" in src
+    assert "markHospitalInternalCorridorGap(rr, cc + m.w, m.h, HOSPITAL_GROUP_INTERNAL_GAP_CELLS" in src
+    assert "occupied[r][c] = true; // reserve internal corridor gap" in src
 
 
 def test_hospital_option_panel_explains_adjacency_logic():

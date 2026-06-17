@@ -1493,6 +1493,7 @@ function hospitalProgramRectFor(program, rotate=false) {
   return {w, h};
 }
 const HOSPITAL_BAND_DEPTH_CELLS = 4; // 모듈 깊이 = 4칸(7.2m). 부서 덩어리는 이 깊이를 기준으로 1~2열로 묶인다.
+const HOSPITAL_GROUP_INTERNAL_GAP_CELLS = 1; // 같은 기능 group 안에서도 실끼리 직접 붙이지 않고 1칸 복도/여유를 둔다.
 // 같은 부서(진료기능)끼리 하나의 덩어리로 묶고, 그 덩어리들을 복도가 감싸도록 한다.
 const HOSPITAL_DEPARTMENT = {
   operating_room:'surg', surgery_support:'surg', recovery_room:'surg', central_supply:'surg',
@@ -1575,6 +1576,20 @@ function placeOneHospitalModule(r0, c0, h, w, code) {
   for (let r = r0; r < r0 + h; r++) for (let c = c0; c < c0 + w; c++) moduleIdGrid[r][c] = id;
   return true;
 }
+function hospitalRowWidth(row) {
+  return row.reduce((s, m) => s + m.w, 0) + Math.max(0, row.length - 1) * HOSPITAL_GROUP_INTERNAL_GAP_CELLS;
+}
+function advanceHospitalModuleColumn(c0, moduleWidth) {
+  return c0 + moduleWidth + HOSPITAL_GROUP_INTERNAL_GAP_CELLS;
+}
+function markHospitalInternalCorridorGap(r0, c0, h, w, corridorCells) {
+  for (let r = r0; r < r0 + h; r++) {
+    for (let c = c0; c < c0 + w; c++) markCorridor(r, c, corridorCells);
+  }
+}
+function hospitalBlockFootprintCells(blk) {
+  return blk.W * blk.H;
+}
 function hospitalGroupRows(group, mods) {
   // 관련 실 2~3개는 하나의 작은 단위로 붙여 복도가 둘러싸게 한다. 4개 이상이면 3개 이하 row로 쪼개고 가운데 복도를 사이에 두어 마주보게 한다.
   if (mods.length <= 3) return [mods];
@@ -1627,7 +1642,7 @@ function buildDepartmentBlocks(requests, strategyIndex) {
   for (const group of groups) {
     const mods = group.instances.map(inst => { const wh = normalizedModuleWH(inst.program); return {w: wh.w, h: wh.h, code: moduleCodes[inst.program.id], id: inst.program.id}; });
     const blockRows = hospitalGroupRows(group, mods);
-    const W = Math.max(...blockRows.map(r => r.reduce((s, m) => s + m.w, 0)));
+    const W = Math.max(...blockRows.map(row => hospitalRowWidth(row)));
     const H = blockRows.length * HOSPITAL_BAND_DEPTH_CELLS + (blockRows.length - 1); // row 사이 1칸은 내부 양면복도
     blocks.push({W, H, rows: blockRows, dept: group.dept, groupKey: group.groupKey, label: group.label, facingRows: blockHasFacingRows(blockRows)});
   }
@@ -1636,10 +1651,15 @@ function buildDepartmentBlocks(requests, strategyIndex) {
   else if (strategyIndex === 0 || strategyIndex === 1) blocks.sort((a, b) => b.H - a.H);
   return blocks;
 }
-function placeDepartmentBlockAt(blk, r0, c0) {
+function placeDepartmentBlockAt(blk, r0, c0, corridorCells) {
   for (let ri = 0; ri < blk.rows.length; ri++) {
     let cc = c0; const rr = r0 + ri * (HOSPITAL_BAND_DEPTH_CELLS + 1); // 줄 사이 1칸은 비워 가운데 복도
-    for (const m of blk.rows[ri]) { placeOneHospitalModule(rr, cc, m.h, m.w, m.code); cc += m.w; }
+    for (let mi = 0; mi < blk.rows[ri].length; mi++) {
+      const m = blk.rows[ri][mi];
+      placeOneHospitalModule(rr, cc, m.h, m.w, m.code);
+      if (mi < blk.rows[ri].length - 1) markHospitalInternalCorridorGap(rr, cc + m.w, m.h, HOSPITAL_GROUP_INTERNAL_GAP_CELLS, corridorCells);
+      cc = advanceHospitalModuleColumn(cc, m.w);
+    }
   }
 }
 function searchDepartmentBlockFit(blk, tr, tc, maxRad) {
@@ -1658,7 +1678,7 @@ function globalFirstFitBlock(blk, b) {
       if (canPlaceModule(r, c, blk.H, blk.W)) return {r, c};
   return null;
 }
-function packDepartmentBlocksDistributed(blocks, strategyIndex=0) {
+function packDepartmentBlocksDistributed(blocks, strategyIndex=0, corridorCells=[]) {
   // 부서 덩어리를 칠한 영역 전체에 '고르게 분산'한다: 영역을 cols×rowsN 격자 칸으로 나눠 각 칸 중앙에 덩어리를 놓고,
   // 자리가 막히면 주변을 탐색해 유동적으로 들어간다. 빈 공간은 복도가 되어 부서들을 나눈다. → 아래쪽까지 채워진다.
   const b = usableBounds(); if (!b) return 0;
@@ -1679,7 +1699,7 @@ function packDepartmentBlocksDistributed(blocks, strategyIndex=0) {
     const cx = b.minC + gc * cellW + cellW / 2, cy = b.minR + gr * cellH + cellH / 2;
     const tr = Math.round(cy - blk.H / 2), tc = Math.round(cx - blk.W / 2);
     const pos = searchDepartmentBlockFit(blk, tr, tc, rad) || globalFirstFitBlock(blk, b);
-    if (pos) { placeDepartmentBlockAt(blk, pos.r, pos.c); placed += blk.rows.reduce((s, r) => s + r.length, 0); }
+    if (pos) { placeDepartmentBlockAt(blk, pos.r, pos.c, corridorCells); placed += blk.rows.reduce((s, r) => s + r.length, 0); }
   });
   return placed;
 }
@@ -1697,7 +1717,7 @@ function markHospitalDepartmentCorridorNetwork(strategyIndex, corridorCells) {
 function placeSelectedHospitalPrograms(requests, corridorCells, strategyIndex=0) {
   const placedProgramInstances = expandHospitalProgramRequests(requests); // (배치 인스턴스 목록)
   const blocks = buildDepartmentBlocks(requests, strategyIndex);
-  const placed = packDepartmentBlocksDistributed(blocks, strategyIndex);
+  const placed = packDepartmentBlocksDistributed(blocks, strategyIndex, corridorCells);
   markHospitalDepartmentCorridorNetwork(strategyIndex, corridorCells); // 빈 공간 → 복도(부서 사이/줄 사이 포함)
   void placedProgramInstances.length;
   return placed;
@@ -1716,9 +1736,13 @@ function canPlaceHospitalBlocksInRect(blocks, H, W) {
     for (let ri = 0; ri < blk.rows.length; ri++) {
       let cc = c0;
       const rr = r0 + ri * (HOSPITAL_BAND_DEPTH_CELLS + 1);
-      for (const m of blk.rows[ri]) {
+      for (let mi = 0; mi < blk.rows[ri].length; mi++) {
+        const m = blk.rows[ri][mi];
         for (let r = rr; r < rr + m.h; r++) for (let c = cc; c < cc + m.w; c++) occupied[r][c] = true;
-        cc += m.w;
+        if (mi < blk.rows[ri].length - 1) {
+          for (let r = rr; r < rr + m.h; r++) for (let c = cc + m.w; c < cc + m.w + HOSPITAL_GROUP_INTERNAL_GAP_CELLS; c++) occupied[r][c] = true; // reserve internal corridor gap
+        }
+        cc = advanceHospitalModuleColumn(cc, m.w);
       }
     }
   }

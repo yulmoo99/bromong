@@ -1733,7 +1733,85 @@ function markHospitalDepartmentCorridorNetwork(strategyIndex, corridorCells) {
     if (grid[r][c] === 1) markCorridor(r, c, corridorCells);
   }
   ensureAllCorridorsConnected(corridorCells);
+  fillHospitalInterstitialCorridorVoids(corridorCells);
+  ensureAllCorridorsConnected(corridorCells);
   void strategyIndex;
+}
+function fillHospitalInterstitialCorridorVoids(corridorCells) {
+  // 복도/실 사이에 끼인 작은 흰 빈칸은 쓸모 없는 잔여지가 아니라 복도 폭/포켓으로 흡수한다.
+  // 단, 외곽의 넓은 사용 가능 잔여지는 그대로 두어 전체를 다시 회색 바다로 만들지 않는다.
+  const isBuilt = (r, c) => grid[r][c] !== 0 && grid[r][c] !== 1;
+  const isCorridor = (r, c) => grid[r][c] === moduleCodes.controlled_corridor;
+  const isRoom = (r, c) => isBuilt(r, c) && !isCorridor(r, c);
+  const shouldAbsorb = (r, c) => {
+    if (grid[r][c] !== 1) return false;
+    const n = {
+      up: r > 0 && isBuilt(r - 1, c),
+      down: r < rows - 1 && isBuilt(r + 1, c),
+      left: c > 0 && isBuilt(r, c - 1),
+      right: c < cols - 1 && isBuilt(r, c + 1),
+      cu: r > 0 && isCorridor(r - 1, c),
+      cd: r < rows - 1 && isCorridor(r + 1, c),
+      cl: c > 0 && isCorridor(r, c - 1),
+      cr: c < cols - 1 && isCorridor(r, c + 1),
+      ru: r > 0 && isRoom(r - 1, c),
+      rd: r < rows - 1 && isRoom(r + 1, c),
+      rl: c > 0 && isRoom(r, c - 1),
+      rr: c < cols - 1 && isRoom(r, c + 1),
+    };
+    const builtCount = [n.up, n.down, n.left, n.right].filter(Boolean).length;
+    const corridorCount = [n.cu, n.cd, n.cl, n.cr].filter(Boolean).length;
+    const hasBuiltToward = (dr, dc) => {
+      let rr = r + dr, cc = c + dc;
+      while (rr >= 0 && rr < rows && cc >= 0 && cc < cols) {
+        if (isBuilt(rr, cc)) return true;
+        rr += dr; cc += dc;
+      }
+      return false;
+    };
+    const insideBuiltField = hasBuiltToward(-1, 0) && hasBuiltToward(1, 0) && hasBuiltToward(0, -1) && hasBuiltToward(0, 1);
+    const oppositeBuilt = (n.up && n.down) || (n.left && n.right);
+    const corridorBridge = (n.cu && n.cd) || (n.cl && n.cr);
+    const roomCorridorPocket = (n.ru && n.cd) || (n.rd && n.cu) || (n.rl && n.cr) || (n.rr && n.cl);
+    return insideBuiltField || corridorBridge || roomCorridorPocket || (corridorCount >= 2 && builtCount >= 2) || (oppositeBuilt && corridorCount >= 1) || builtCount >= 3;
+  };
+  const collectSmallSpanGaps = () => {
+    const fill = [];
+    const maxGap = 3; // 1~3칸짜리 흰 틈만 복도로 흡수하고, 큰 외곽 잔여지는 유지한다.
+    for (let r = 0; r < rows; r++) {
+      let c = 0;
+      while (c < cols) {
+        if (grid[r][c] !== 1) { c++; continue; }
+        const start = c;
+        while (c < cols && grid[r][c] === 1) c++;
+        const len = c - start;
+        const bounded = start > 0 && c < cols && isBuilt(r, start - 1) && isBuilt(r, c);
+        if (bounded && len <= maxGap) for (let cc = start; cc < c; cc++) fill.push([r, cc]);
+      }
+    }
+    for (let c = 0; c < cols; c++) {
+      let r = 0;
+      while (r < rows) {
+        if (grid[r][c] !== 1) { r++; continue; }
+        const start = r;
+        while (r < rows && grid[r][c] === 1) r++;
+        const len = r - start;
+        const bounded = start > 0 && r < rows && isBuilt(start - 1, c) && isBuilt(r, c);
+        if (bounded && len <= maxGap) for (let rr = start; rr < r; rr++) fill.push([rr, c]);
+      }
+    }
+    return fill;
+  };
+  let changed = true;
+  for (let pass = 0; pass < 5 && changed; pass++) {
+    changed = false;
+    const fill = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (shouldAbsorb(r, c)) fill.push([r, c]);
+    fill.push(...collectSmallSpanGaps());
+    for (const [r, c] of fill) {
+      if (grid[r][c] === 1) { markCorridor(r, c, corridorCells || []); changed = true; }
+    }
+  }
 }
 function placeSelectedHospitalPrograms(requests, corridorCells, strategyIndex=0) {
   const placedProgramInstances = expandHospitalProgramRequests(requests); // (배치 인스턴스 목록)
@@ -1884,6 +1962,8 @@ function generateHospitalLayoutOptions(programRequests) {
     const placedPrograms = placeSelectedHospitalPrograms(programRequests, corridorCells, strategy);
     ensureAllCorridorsConnected(corridorCells);
     fillRemainingEdgeCells(corridorCells);
+    fillHospitalInterstitialCorridorVoids(corridorCells);
+    ensureAllCorridorsConnected(corridorCells);
     const score = layoutUtilizationScore();
     const adjacency = scoreHospitalAdjacency(grid);
     // 기존 hospital_program:department_cluster 방식은 작은 관련 실 단위 group corridor로 세분화하고, 내부 후보를 hospital_program:group_corridor_adjacency_scored 로 재점수화한다.

@@ -84,3 +84,15 @@ def test_hospital_option_panel_explains_adjacency_logic():
     assert "수술 cluster" in src
     assert "응급-영상 cluster" in src
     assert "검사 cluster" in src
+
+
+def test_hospital_interstitial_voids_between_corridors_are_absorbed():
+    src = app_source()
+
+    assert "function fillHospitalInterstitialCorridorVoids" in src
+    assert "복도/실 사이에 끼인 작은 흰 빈칸" in src
+    assert "corridorBridge || roomCorridorPocket" in src
+    assert "insideBuiltField" in src
+    assert "collectSmallSpanGaps" in src
+    assert "1~3칸짜리 흰 틈만 복도로 흡수" in src
+    assert "fillHospitalInterstitialCorridorVoids(corridorCells)" in src

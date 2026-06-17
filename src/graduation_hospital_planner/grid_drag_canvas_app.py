@@ -251,7 +251,12 @@ const codeToModule = ${code_to_module_js};
 const colors = ${colors_js};
 const labels = ${labels_js};
 const HOSPITAL_PROGRAMS = (moduleDb.hospital_program_modules || []);
-const HOSPITAL_PROGRAM_BUNDLES = { operating_room: ['surgery_support', 'recovery_room', 'central_supply'] };
+const HOSPITAL_PROGRAM_BUNDLES = {
+  operating_room: ['surgery_support', 'recovery_room', 'central_supply'],
+  exam_room: ['patient_waiting'],
+  treatment_room: ['patient_waiting'],
+  infusion_6bed: ['patient_waiting']
+};
 // These are shared department-support minimums, not one-to-one clones per OR.
 // Extra checked quantities still win through addRequest(Math.max(...)).
 const HOSPITAL_PROGRAM_BUNDLE_MIN_QTY = { operating_room: {surgery_support: 1, recovery_room: 1, central_supply: 1} };
@@ -1497,7 +1502,7 @@ const HOSPITAL_GROUP_INTERNAL_GAP_CELLS = 0; // 같은 기능 group 내부 실�
 // 같은 부서(진료기능)끼리 하나의 덩어리로 묶고, 그 덩어리들을 복도가 감싸도록 한다.
 const HOSPITAL_DEPARTMENT = {
   operating_room:'surg', surgery_support:'surg', recovery_room:'surg', central_supply:'surg',
-  exam_room:'exam', specimen_collection:'exam', treatment_room:'exam',
+  exam_room:'exam', patient_waiting:'exam', specimen_collection:'exam', treatment_room:'exam',
   ct_suite:'img', xray_room:'img', diagnostic_lab:'img', pathology_lab:'img',
   emergency_care:'acute', observation_4bed:'acute',
   infusion_6bed:'inf', dialysis_4bed:'inf', dialysis_8bed:'inf',
@@ -1514,12 +1519,11 @@ const HOSPITAL_DEPARTMENT_ORDERS = [
   ['adm','exam','img','acute','surg','inf','obs']
 ];
 const HOSPITAL_RELATED_GROUPS = [
-  {key:'surgery_core', label:'수술 core group', dept:'surg', maxPerGroup: 3, ids:['operating_room','surgery_support','recovery_room']},
-  {key:'surgery_supply', label:'수술 멸균공급 group', dept:'surg', maxPerGroup: 2, ids:['central_supply','surgery_support']},
-  {key:'acute_care', label:'응급-관찰-처치 group', dept:'acute', maxPerGroup: 3, ids:['emergency_care','observation_4bed','treatment_room']},
+  {key:'surgery_core', label:'수술실-중앙공급-수술지원-회복 통합 core group', dept:'surg', maxPerGroup: 99, ids:['operating_room','surgery_support','central_supply','recovery_room']},
+  {key:'acute_care', label:'응급-관찰 group', dept:'acute', maxPerGroup: 2, ids:['emergency_care','observation_4bed']},
   {key:'imaging', label:'영상검사 group', dept:'img', maxPerGroup: 2, ids:['ct_suite','xray_room']},
   {key:'diagnostic', label:'검체-진단-병리 group', dept:'img', maxPerGroup: 3, ids:['specimen_collection','diagnostic_lab','pathology_lab']},
-  {key:'outpatient', label:'외래-처치-수액 group', dept:'exam', maxPerGroup: 3, ids:['exam_room','treatment_room','infusion_6bed']},
+  {key:'outpatient', label:'환자대기-진료-처치-수액 group', dept:'exam', maxPerGroup: 4, ids:['patient_waiting','exam_room','treatment_room','infusion_6bed']},
   {key:'dialysis', label:'투석 group', dept:'inf', maxPerGroup: 2, ids:['dialysis_4bed','dialysis_8bed']},
   {key:'obstetric', label:'분만-신생아 group', dept:'obs', maxPerGroup: 2, ids:['delivery_room','newborn_treatment']},
   {key:'research_admin', label:'연구-행정 group', dept:'adm', maxPerGroup: 6, ids:['clinical_research_lab','data_analysis_room','meeting_room','administration']}
@@ -1547,6 +1551,10 @@ const HOSPITAL_ADJACENCY_RULES = [
   ['ct_suite','diagnostic_lab',20,'영상-진단검사 보조'],
   ['xray_room','diagnostic_lab',20,'X-ray-진단검사 보조'],
   // outpatient / treatment / infusion cluster.
+  ['patient_waiting','exam_room',100,'환자대기-진료'],
+  ['patient_waiting','treatment_room',70,'환자대기-처치'],
+  ['patient_waiting','infusion_6bed',35,'환자대기-수액'],
+  ['patient_waiting','specimen_collection',35,'환자대기-검체'],
   ['consult_room','treatment_room',70,'외래-처치'],
   ['consult_room','specimen_collection',35,'외래-검체'],
   ['consult_room','infusion_6bed',35,'외래-수액'],
@@ -1592,7 +1600,21 @@ function hospitalBlockFootprintCells(blk) {
   return blk.W * blk.H;
 }
 function hospitalGroupRows(group, mods) {
-  // 관련 실 2~3개는 하나의 작은 단위로 붙여 복도가 둘러싸게 한다. 4개 이상이면 3개 이하 row로 쪼개고 가운데 복도를 사이에 두어 마주보게 한다.
+  // 관련 실은 하나의 block 안에서 붙인다. 수술부는 OR들이 여러 개여도 지원/중앙공급/회복과 같은 코어 안에 묶는다.
+  if (group.groupKey === 'surgery_core') {
+    const ors = mods.filter(m => m.id === 'operating_room');
+    const supports = mods.filter(m => m.id !== 'operating_room').sort((a, b) => {
+      const order = ['surgery_support', 'central_supply', 'recovery_room'];
+      return order.indexOf(a.id) - order.indexOf(b.id);
+    });
+    const rowsOut = [];
+    for (let i = 0; i < ors.length; i += 3) {
+      rowsOut.push(ors.slice(i, i + 3));
+      if (i === 0 && supports.length) rowsOut.push(supports);
+    }
+    if (!ors.length && supports.length) rowsOut.push(supports);
+    return rowsOut.filter(row => row.length);
+  }
   if (mods.length <= 3) return [mods];
   const rowCount = Math.ceil(mods.length / 3);
   const rowsOut = [];

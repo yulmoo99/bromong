@@ -46,3 +46,13 @@ def test_corridor_is_linear_and_exempt_from_aspect_ratio_check():
     assert corridor["shape_policy"]["shape_type"] == "linear"
     assert corridor["shape_policy"]["aspect_ratio_check"] is False
     assert corridor["shape_policy"]["min_width_cells"] == 2
+
+
+def test_hospital_programs_include_patient_waiting_module():
+    programs = {m["id"]: m for m in load_db()["hospital_program_modules"]}
+
+    waiting = programs["patient_waiting"]
+    assert waiting["name_ko"] == "환자대기실 모듈"
+    assert waiting["preferred_grid_size"] == [4, 4]
+    assert waiting["code"] == 82
+    assert "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018" in waiting["design_basis"]

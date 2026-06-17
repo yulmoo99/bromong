@@ -45,15 +45,16 @@ def test_hospital_layout_candidates_are_scored_by_adjacency_before_single_result
 def test_hospital_grouping_keeps_related_rooms_in_small_corridor_wrapped_units():
     src = app_source()
 
-    assert "maxPerGroup: 3" in src
-    assert "const HOSPITAL_GROUP_INTERNAL_GAP_CELLS = 0" in src
+    assert "maxPerGroup: 99" in src
+    assert "ids:['operating_room','surgery_support','central_supply','recovery_room']" in src
     assert "function hospitalRowWidth" in src
     assert "function advanceHospitalModuleColumn" in src
     assert "markHospitalInternalCorridorGap" in src
-    assert "응급-관찰-처치 group" in src
+    assert "응급-관찰 group" in src
     assert "영상검사 group" in src
     assert "검체-진단-병리 group" in src
-    assert "수술 core group" in src
+    assert "수술실-중앙공급-수술지원-회복 통합 core group" in src
+    assert "환자대기-진료-처치-수액 group" in src
     assert "groupKey" in src
     assert "hospital_program:group_corridor_adjacency_scored" in src
 
@@ -61,10 +62,23 @@ def test_hospital_grouping_keeps_related_rooms_in_small_corridor_wrapped_units()
 def test_large_hospital_groups_are_split_into_facing_rows_not_single_lumps():
     src = app_source()
 
+    assert "if (group.groupKey === 'surgery_core')" in src
+    assert "const order = ['surgery_support', 'central_supply', 'recovery_room']" in src
+    assert "if (i === 0 && supports.length) rowsOut.push(supports)" in src
     assert "if (mods.length <= 3) return [mods]" in src
     assert "const rowCount = Math.ceil(mods.length / 3)" in src
     assert "const half = Math.ceil(rowsOut.length / 2)" in src
     assert "blockHasFacingRows" in src
+
+
+def test_patient_waiting_is_bundled_with_outpatient_care():
+    src = app_source()
+
+    assert "exam_room: ['patient_waiting']" in src
+    assert "treatment_room: ['patient_waiting']" in src
+    assert "patient_waiting:'exam'" in src
+    assert "['patient_waiting','exam_room',100" in src
+    assert "['patient_waiting','treatment_room',70" in src
 
 
 def test_related_rooms_touch_inside_a_cluster_but_different_blocks_keep_corridor_buffer():

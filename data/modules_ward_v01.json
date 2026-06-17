@@ -648,6 +648,36 @@
       "quantity_step": 1
     },
     {
+      "id": "patient_waiting",
+      "name_ko": "환자대기실 모듈",
+      "category": "hospital_program",
+      "applies_to": [
+        "외래 대기",
+        "진료 대기",
+        "검사 전 대기"
+      ],
+      "recommended_area": "외래/검사 대기공간: 진료실·처치실 인접 배치 권장",
+      "module_count": 2,
+      "base_module_cells": [
+        2,
+        4
+      ],
+      "preferred_grid_size": [
+        4,
+        4
+      ],
+      "planning_area_m2": 51.8,
+      "code": 82,
+      "legal_basis": [
+        "KR_MEDICAL_SERVICE_ACT_FACILITY_RULES"
+      ],
+      "design_basis": [
+        "USER_PDF_MEDICAL_FACILITY_GUIDELINE_2018"
+      ],
+      "default_quantity": 0,
+      "quantity_step": 1
+    },
+    {
       "id": "specimen_collection",
       "name_ko": "검체채취 모듈",
       "category": "hospital_program",

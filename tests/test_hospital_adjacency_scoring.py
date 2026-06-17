@@ -46,7 +46,7 @@ def test_hospital_grouping_keeps_related_rooms_in_small_corridor_wrapped_units()
     src = app_source()
 
     assert "maxPerGroup: 3" in src
-    assert "const HOSPITAL_GROUP_INTERNAL_GAP_CELLS = 1" in src
+    assert "const HOSPITAL_GROUP_INTERNAL_GAP_CELLS = 0" in src
     assert "function hospitalRowWidth" in src
     assert "function advanceHospitalModuleColumn" in src
     assert "markHospitalInternalCorridorGap" in src
@@ -67,13 +67,14 @@ def test_large_hospital_groups_are_split_into_facing_rows_not_single_lumps():
     assert "blockHasFacingRows" in src
 
 
-def test_related_rooms_have_internal_corridor_gaps_not_touching_walls():
+def test_related_rooms_touch_inside_a_cluster_but_different_blocks_keep_corridor_buffer():
     src = app_source()
 
-    assert "row.length - 1) * HOSPITAL_GROUP_INTERNAL_GAP_CELLS" in src
-    assert "cc = advanceHospitalModuleColumn(cc, m.w)" in src
-    assert "markHospitalInternalCorridorGap(rr, cc + m.w, m.h, HOSPITAL_GROUP_INTERNAL_GAP_CELLS" in src
-    assert "occupied[r][c] = true; // reserve internal corridor gap" in src
+    assert "const HOSPITAL_GROUP_INTERNAL_GAP_CELLS = 0" in src
+    assert "같은 block 내부의 실은 붙이되" in src
+    assert "function canPlaceDepartmentBlockWithBuffer" in src
+    assert "if (grid[r][c] !== 0 && grid[r][c] !== 1) return false" in src
+    assert "keep a corridor buffer between different functional blocks" in src
 
 
 def test_hospital_option_panel_explains_adjacency_logic():

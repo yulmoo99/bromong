@@ -1493,7 +1493,7 @@ function hospitalProgramRectFor(program, rotate=false) {
   return {w, h};
 }
 const HOSPITAL_BAND_DEPTH_CELLS = 4; // 모듈 깊이 = 4칸(7.2m). 부서 덩어리는 이 깊이를 기준으로 1~2열로 묶인다.
-const HOSPITAL_GROUP_INTERNAL_GAP_CELLS = 1; // 같은 기능 group 안에서도 실끼리 직접 붙이지 않고 1칸 복도/여유를 둔다.
+const HOSPITAL_GROUP_INTERNAL_GAP_CELLS = 0; // 같은 기능 group 내부 실은 붙여 하나의 부서 클러스터로 읽히게 한다. 경계는 moduleIdGrid outline으로만 구분한다.
 // 같은 부서(진료기능)끼리 하나의 덩어리로 묶고, 그 덩어리들을 복도가 감싸도록 한다.
 const HOSPITAL_DEPARTMENT = {
   operating_room:'surg', surgery_support:'surg', recovery_room:'surg', central_supply:'surg',
@@ -1583,6 +1583,7 @@ function advanceHospitalModuleColumn(c0, moduleWidth) {
   return c0 + moduleWidth + HOSPITAL_GROUP_INTERNAL_GAP_CELLS;
 }
 function markHospitalInternalCorridorGap(r0, c0, h, w, corridorCells) {
+  if (w <= 0) return;
   for (let r = r0; r < r0 + h; r++) {
     for (let c = c0; c < c0 + w; c++) markCorridor(r, c, corridorCells);
   }
@@ -1657,17 +1658,28 @@ function placeDepartmentBlockAt(blk, r0, c0, corridorCells) {
     for (let mi = 0; mi < blk.rows[ri].length; mi++) {
       const m = blk.rows[ri][mi];
       placeOneHospitalModule(rr, cc, m.h, m.w, m.code);
-      if (mi < blk.rows[ri].length - 1) markHospitalInternalCorridorGap(rr, cc + m.w, m.h, HOSPITAL_GROUP_INTERNAL_GAP_CELLS, corridorCells);
+      if (mi < blk.rows[ri].length - 1 && HOSPITAL_GROUP_INTERNAL_GAP_CELLS > 0) markHospitalInternalCorridorGap(rr, cc + m.w, m.h, HOSPITAL_GROUP_INTERNAL_GAP_CELLS, corridorCells);
       cc = advanceHospitalModuleColumn(cc, m.w);
     }
   }
+}
+function canPlaceDepartmentBlockWithBuffer(r0, c0, h, w) {
+  // 같은 block 내부의 실은 붙이되, 서로 다른 block/기능군은 최소 1칸 빈 띠를 남긴다.
+  // 이후 이 빈 띠가 controlled corridor로 바뀌어 기능군 사이 복도가 된다.
+  if (!canPlaceModule(r0, c0, h, w)) return false;
+  for (let r = r0 - 1; r <= r0 + h; r++) for (let c = c0 - 1; c <= c0 + w; c++) {
+    if (r < 0 || r >= rows || c < 0 || c >= cols) continue;
+    if (r >= r0 && r < r0 + h && c >= c0 && c < c0 + w) continue;
+    if (grid[r][c] !== 0 && grid[r][c] !== 1) return false;
+  }
+  return true;
 }
 function searchDepartmentBlockFit(blk, tr, tc, maxRad) {
   // 목표 위치 주변을 점점 넓혀가며(spiral) 칠해진(==1) 직사각형 자리를 찾는다.
   for (let rad = 0; rad <= maxRad; rad++) {
     for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) {
       if (Math.max(Math.abs(dr), Math.abs(dc)) !== rad) continue;
-      if (canPlaceModule(tr + dr, tc + dc, blk.H, blk.W)) return {r: tr + dr, c: tc + dc};
+      if (canPlaceDepartmentBlockWithBuffer(tr + dr, tc + dc, blk.H, blk.W)) return {r: tr + dr, c: tc + dc};
     }
   }
   return null;
@@ -1675,7 +1687,7 @@ function searchDepartmentBlockFit(blk, tr, tc, maxRad) {
 function globalFirstFitBlock(blk, b) {
   for (let r = b.minR; r <= b.maxR - blk.H + 1; r++)
     for (let c = b.minC; c <= b.maxC - blk.W + 1; c++)
-      if (canPlaceModule(r, c, blk.H, blk.W)) return {r, c};
+      if (canPlaceDepartmentBlockWithBuffer(r, c, blk.H, blk.W)) return {r, c};
   return null;
 }
 function packDepartmentBlocksDistributed(blocks, strategyIndex=0, corridorCells=[]) {
@@ -1704,15 +1716,24 @@ function packDepartmentBlocksDistributed(blocks, strategyIndex=0, corridorCells=
   return placed;
 }
 function markHospitalDepartmentCorridorNetwork(strategyIndex, corridorCells) {
-  // 배치 후 남은 빈칸(==1)을 전부 복도로 만든다(요청: 비는 공간은 복도). 모듈 사이 밴드 간격·여백이 모두 복도가 되어
-  // 하나로 연결된 순환 복도망이 되고, 모든 실이 복도에 접한다. (ring=둘레, branchRows=밴드 사이 복도 행)
-  const ring = true;
-  const branchRows = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) if (grid[r][c] === 1) markCorridor(r, c, corridorCells);
-    branchRows.push(r);
+  // 빈 영역 전체를 복도로 칠하지 않는다. 실/부서 block 주위의 1칸 buffer와 연결에 필요한 길만 controlled corridor로 만든다.
+  // 같은 기능군 내부 실은 붙어 있고, 서로 다른 기능군 사이에 남긴 buffer가 복도로 읽히게 한다.
+  const roomCells = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    if (grid[r][c] !== 0 && grid[r][c] !== 1 && grid[r][c] !== moduleCodes.controlled_corridor) roomCells.push([r, c]);
   }
-  void ring; void branchRows.length;
+  const toMark = new Set();
+  for (const [r, c] of roomCells) {
+    for (const [rr, cc] of neighbors4(r, c)) {
+      if (grid[rr][cc] === 1) toMark.add(keyOf(rr, cc));
+    }
+  }
+  for (const k of toMark) {
+    const [r, c] = parseKey(k);
+    if (grid[r][c] === 1) markCorridor(r, c, corridorCells);
+  }
+  ensureAllCorridorsConnected(corridorCells);
+  void strategyIndex;
 }
 function placeSelectedHospitalPrograms(requests, corridorCells, strategyIndex=0) {
   const placedProgramInstances = expandHospitalProgramRequests(requests); // (배치 인스턴스 목록)
@@ -1730,6 +1751,11 @@ function canPlaceHospitalBlocksInRect(blocks, H, W) {
   function canPlaceBlockRect(blk, r0, c0) {
     if (r0 < 0 || c0 < 0 || r0 + blk.H > H || c0 + blk.W > W) return false;
     for (let r = r0; r < r0 + blk.H; r++) for (let c = c0; c < c0 + blk.W; c++) if (occupied[r][c]) return false;
+    for (let r = r0 - 1; r <= r0 + blk.H; r++) for (let c = c0 - 1; c <= c0 + blk.W; c++) {
+      if (r < 0 || r >= H || c < 0 || c >= W) continue;
+      if (r >= r0 && r < r0 + blk.H && c >= c0 && c < c0 + blk.W) continue;
+      if (occupied[r][c]) return false; // keep a corridor buffer between different functional blocks
+    }
     return true;
   }
   function placeBlockRooms(blk, r0, c0) {
@@ -1739,7 +1765,7 @@ function canPlaceHospitalBlocksInRect(blocks, H, W) {
       for (let mi = 0; mi < blk.rows[ri].length; mi++) {
         const m = blk.rows[ri][mi];
         for (let r = rr; r < rr + m.h; r++) for (let c = cc; c < cc + m.w; c++) occupied[r][c] = true;
-        if (mi < blk.rows[ri].length - 1) {
+        if (mi < blk.rows[ri].length - 1 && HOSPITAL_GROUP_INTERNAL_GAP_CELLS > 0) {
           for (let r = rr; r < rr + m.h; r++) for (let c = cc + m.w; c < cc + m.w + HOSPITAL_GROUP_INTERNAL_GAP_CELLS; c++) occupied[r][c] = true; // reserve internal corridor gap
         }
         cc = advanceHospitalModuleColumn(cc, m.w);
